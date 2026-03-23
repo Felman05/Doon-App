@@ -21,7 +21,7 @@ class ItineraryStoreRequest extends FormRequest
             'end_date' => ['nullable', 'date'],
             'total_days' => ['nullable', 'integer', 'min:1'],
             'budget_amount' => ['nullable', 'numeric'],
-            'budget_label' => ['nullable', 'in:budget,mid_range,luxury'],
+            'budget_label' => ['nullable', 'in:free,budget,mid_range,luxury'],
             'number_of_people' => ['nullable', 'integer', 'min:1'],
             'travel_theme' => ['nullable', 'string', 'max:100'],
             'generational_profile' => ['nullable', 'in:gen_z,millennial,gen_x,boomer'],

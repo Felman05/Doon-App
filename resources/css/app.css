@@ -2,3 +2,270 @@
 
 
 .shimmer{position:relative;overflow:hidden;background:var(--bg2)}.shimmer::after{content:'';position:absolute;top:0;left:-150px;width:150px;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);animation:sh 1.2s infinite}@keyframes sh{0%{left:-150px}100%{left:100%}}.toast-stack{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px}.toast{background:var(--wh);border-left:3px solid var(--ac);border-radius:var(--r);padding:12px 16px;font-size:13px;color:var(--i);box-shadow:var(--s2);animation:toast-slide .3s ease;max-width:320px}.toast-success{border-left-color:var(--ac);background:var(--acb)}.toast-error{border-left-color:#c05040;background:#fef0ee}.toast-info{border-left-color:var(--bd2);background:var(--bg2)}@keyframes toast-slide{from{opacity:0;transform:translateX(400px);max-height:0}to{opacity:1;transform:translateX(0);max-height:200px}}.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:500;backdrop-filter:blur(2px);animation:fade-in .2s ease}.modal-box{background:var(--wh);border-radius:var(--r3);border:1px solid var(--bd);padding:28px;max-width:500px;max-height:90vh;overflow-y:auto;animation:modal-pop .25s ease;box-shadow:var(--s3)}@keyframes fade-in{from{opacity:0}to{opacity:1}}@keyframes modal-pop{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.typing-dot{display:inline-block;animation:typing-bounce .75s infinite ease-in-out}
+@keyframes typing-bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-4px)}}
+.chat-markdown{display:block}
+.chat-markdown p{margin:0 0 8px}
+.chat-markdown p:last-child{margin-bottom:0}
+.chat-markdown ol,.chat-markdown ul{margin:0 0 8px 18px;padding:0}
+.chat-markdown li{margin:0 0 4px}
+.chat-markdown li:last-child{margin-bottom:0}
+.chat-markdown strong{font-weight:700}
+
+.shortcut-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 14px;
+	margin-bottom: 24px;
+}
+
+.shortcut-card {
+	background: var(--wh);
+	border: 1px solid var(--bd);
+	border-radius: var(--r2);
+	padding: 22px 22px 20px;
+	cursor: pointer;
+	transition: border-color .15s, box-shadow .15s, transform .15s;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	text-decoration: none;
+	color: inherit;
+}
+
+.shortcut-card:hover {
+	border-color: var(--ac);
+	box-shadow: var(--s2);
+	transform: translateY(-2px);
+}
+
+.shortcut-card-icon {
+	width: 40px;
+	height: 40px;
+	border-radius: var(--r);
+	background: var(--acb);
+	border: 1px solid var(--acbd);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 18px;
+	color: var(--ac);
+}
+
+.shortcut-card-title {
+	font-family: 'Fraunces', serif;
+	font-size: 16px;
+	font-weight: 700;
+	letter-spacing: -0.3px;
+	color: var(--i);
+}
+
+.shortcut-card-desc {
+	font-size: 12px;
+	font-weight: 300;
+	color: var(--i3);
+	line-height: 1.55;
+}
+
+.shortcut-card-arrow {
+	font-size: 12px;
+	color: var(--ac);
+	font-weight: 600;
+	margin-top: auto;
+}
+
+@media (max-width: 1024px) {
+	.shortcut-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+@media (max-width: 680px) {
+	.shortcut-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+.rec-layout {
+	display: grid;
+	grid-template-columns: 280px minmax(0, 1fr);
+	gap: 16px;
+}
+
+@media (max-width: 920px) {
+	.rec-layout {
+		grid-template-columns: 1fr;
+	}
+}
+
+body {
+	cursor: auto !important;
+}
+
+button,
+input,
+select,
+textarea {
+	cursor: auto !important;
+}
+
+body.cursor-active,
+body.cursor-active button,
+body.cursor-active input,
+body.cursor-active select,
+body.cursor-active textarea,
+body.cursor-active a {
+	cursor: none !important;
+}
+
+.gm-style img,
+.gm-style canvas {
+	max-width: none !important;
+}
+
+.chat-page-wrap {
+	display: flex;
+	flex-direction: column;
+	height: calc(100vh - 120px);
+	position: relative;
+}
+
+.chat-new-btn {
+	align-self: flex-end;
+	margin: 0 24px 8px 0;
+	flex-shrink: 0;
+}
+
+.chat-messages-area {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 20px 24px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	scrollbar-width: thin;
+	scrollbar-color: var(--bd) transparent;
+}
+
+.chat-bub {
+	overflow-wrap: break-word;
+	word-break: break-word;
+}
+
+.chat-bubble-bot strong {
+	font-weight: 600;
+}
+
+.chat-bubble-bot ol,
+.chat-bubble-bot ul {
+	padding-left: 20px;
+	margin: 8px 0;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.chat-bubble-bot li {
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.chat-bubble-bot p {
+	margin-bottom: 6px;
+}
+
+.chat-input-bar {
+	flex-shrink: 0;
+	padding: 16px 24px;
+	border-top: 1px solid var(--bd);
+	background: var(--wh);
+	display: flex;
+	gap: 8px;
+}
+
+.sp-remove-btn:hover {
+	border-color: #c05040;
+	color: #8a2a1a;
+}
+
+.loading-spinner {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	border: 2px solid var(--bd2);
+	border-top-color: var(--ac);
+	animation: spin .7s linear infinite;
+	display: inline-block;
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.rec-results-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 12px;
+}
+
+.rec-card {
+	background: var(--wh);
+	border: 1px solid var(--bd);
+	border-radius: var(--r2);
+	overflow: hidden;
+	position: relative;
+	transition: border-color .15s, box-shadow .15s, transform .15s;
+	display: flex;
+	flex-direction: column;
+}
+
+.rec-card:hover {
+	border-color: var(--ac);
+	box-shadow: var(--s2);
+	transform: translateY(-2px);
+}
+
+.rec-card-main {
+	cursor: pointer;
+}
+
+.rec-card-banner {
+	height: 100px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.rec-card-banner-emoji {
+	font-size: 36px;
+}
+
+.rec-card-content {
+	padding: 14px 16px;
+}
+
+.rec-card-actions {
+	display: flex;
+	gap: 6px;
+	padding: 0 16px 14px;
+}
+
+.rec-save-btn-saved {
+	color: var(--ac);
+	border-color: var(--acbd);
+}
+
+@media (max-width: 1100px) {
+	.rec-results-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+@media (max-width: 720px) {
+	.rec-results-grid {
+		grid-template-columns: 1fr;
+	}
+}

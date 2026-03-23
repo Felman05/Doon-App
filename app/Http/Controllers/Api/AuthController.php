@@ -76,6 +76,40 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        return response()->json(['user' => new UserResource($request->user())]);
+        $user = $request->user()->loadMissing('touristProfile');
+
+        return response()->json(['user' => new UserResource($user)]);
+    }
+
+    public function savePreferences(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'generational_profile' => ['nullable', 'string', 'max:50'],
+            'preferred_budget' => ['nullable', 'string', 'max:50'],
+            'preferred_travel_style' => ['nullable', 'string', 'max:100'],
+            'preferred_provinces' => ['nullable', 'array'],
+            'preferred_provinces.*' => ['string', 'max:100'],
+            'preferred_themes' => ['nullable', 'array'],
+            'preferred_themes.*' => ['string', 'max:100'],
+            'location_tracking' => ['nullable', 'boolean'],
+        ]);
+
+        $user = $request->user();
+        $user->touristProfile()->updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'generational_profile' => $validated['generational_profile'] ?? null,
+                'preferred_budget' => $validated['preferred_budget'] ?? null,
+                'travel_style' => $validated['preferred_travel_style'] ?? null,
+                'preferred_provinces' => $validated['preferred_provinces'] ?? [],
+                'preferred_themes' => $validated['preferred_themes'] ?? [],
+                'location_tracking_consent' => (bool) ($validated['location_tracking'] ?? false),
+            ]
+        );
+
+        return response()->json([
+            'message' => 'Preferences saved',
+            'user' => new UserResource($user->load('touristProfile')),
+        ]);
     }
 }

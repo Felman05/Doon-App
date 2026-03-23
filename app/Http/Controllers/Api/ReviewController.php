@@ -12,6 +12,21 @@ use Illuminate\Http\Request;
 
 class ReviewController extends Controller
 {
+    public function index(Request $request): JsonResponse
+    {
+        $query = Review::query()->with(['destination.province']);
+
+        if ($request->boolean('mine')) {
+            $query->where('user_id', $request->user()->id);
+        }
+
+        $reviews = $query->latest('created_at')->get();
+
+        return response()->json([
+            'data' => $reviews->map(fn (Review $review) => (new ReviewResource($review))->toArray($request)),
+        ]);
+    }
+
     public function store(ReviewStoreRequest $request): JsonResponse
     {
         $review = Review::create([
@@ -20,7 +35,7 @@ class ReviewController extends Controller
             'is_published' => true,
         ]);
 
-        return response()->json(new ReviewResource($review), 201);
+        return response()->json(new ReviewResource($review->load(['destination.province'])), 201);
     }
 
     public function update(ReviewUpdateRequest $request, Review $review): JsonResponse
@@ -31,7 +46,7 @@ class ReviewController extends Controller
 
         $review->update($request->validated());
 
-        return response()->json(new ReviewResource($review));
+        return response()->json(new ReviewResource($review->load(['destination.province'])));
     }
 
     public function destroy(Request $request, Review $review): JsonResponse

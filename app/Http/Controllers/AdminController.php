@@ -249,7 +249,6 @@ class AdminController extends Controller
             ]
         ]);
     }
-}
 
     public function listCategories()
     {
@@ -422,3 +421,5 @@ class AdminController extends Controller
             'Content-Disposition' => 'attachment; filename="report.csv"',
         ]);
     }
+
+}

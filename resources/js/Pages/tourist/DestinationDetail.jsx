@@ -5,21 +5,28 @@ import api from '../../lib/axios';
 import { ToastContext } from '../../context/ToastContext';
 import ConfirmationDialog from '../../components/ui/ConfirmationDialog';
 import Skeleton from '../../components/ui/Skeleton';
+import { travelAdvice, weatherEmoji } from '../../lib/weatherUi';
 
-export default function DestinationDetail() {
+export default function DestinationDetail({ weatherState }) {
     const { id } = useParams();
     const { addToast } = useContext(ToastContext) || {};
+    const weather = weatherState?.weather ?? [];
     const [showReviewForm, setShowReviewForm] = useState(false);
     const [rating, setRating] = useState(5);
     const [reviewTitle, setReviewTitle] = useState('');
     const [visitDate, setVisitDate] = useState('');
     const [reviewComment, setReviewComment] = useState('');
 
+    const formatRating = (value) => {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric.toFixed(1) : 'N/A';
+    };
+
     const { data: destination, isLoading } = useQuery({
         queryKey: ['destination', id],
         queryFn: async () => {
             const { data } = await api.get(`/destinations/${id}`);
-            return data.data;
+            return data.data ?? data;
         },
     });
 
@@ -51,6 +58,9 @@ export default function DestinationDetail() {
     if (isLoading) return <Skeleton height="400px" />;
     if (!destination) return <div className="dc sr"><div style={{ textAlign: 'center', padding: '40px ' }}>Destination not found</div></div>;
 
+    const provinceName = destination.province?.name ?? destination.province;
+    const provinceWeather = weather.find((entry) => entry.province === provinceName);
+
     return (
         <>
             {/* Header */}
@@ -60,11 +70,11 @@ export default function DestinationDetail() {
                     <div style={{ flex: 1 }}>
                         <h1 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--i)', marginBottom: '8px' }}>{destination.name}</h1>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            <span className="pill p-n">{destination.province}</span>
-                            <span className="pill p-n">{destination.category}</span>
+                            <span className="pill p-n">{destination.province?.name ?? destination.province ?? 'N/A'}</span>
+                            <span className="pill p-n">{destination.category?.name ?? destination.category ?? 'N/A'}</span>
                         </div>
                         <div style={{ marginTop: '12px', fontSize: '13px', color: 'var(--i3)' }}>
-                            ⭐ {destination.avg_rating?.toFixed(1) || 'N/A'} ({destination.review_count || 0} reviews)
+                            ⭐ {formatRating(destination.avg_rating)} ({destination.total_reviews || destination.review_count || 0} reviews)
                         </div>
                     </div>
                     <div>
@@ -79,6 +89,36 @@ export default function DestinationDetail() {
                 <div style={{ marginTop: '16px', fontSize: '13px', color: 'var(--i)', lineHeight: '1.6' }}>
                     {destination.description}
                 </div>
+
+                {provinceWeather ? (
+                    <div
+                        style={{
+                            background: 'var(--bg2)',
+                            border: '1px solid var(--bd)',
+                            borderRadius: 'var(--r2)',
+                            padding: '14px 18px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 16,
+                            marginTop: '14px',
+                        }}
+                    >
+                        <span style={{ fontSize: 32 }}>
+                            {weatherEmoji(provinceWeather.condition, provinceWeather.icon)}
+                        </span>
+                        <div>
+                            <div style={{ fontWeight: 600, fontSize: 14 }}>
+                                Current Weather in {provinceWeather.province}
+                            </div>
+                            <div style={{ fontSize: 13, color: 'var(--i3)' }}>
+                                {provinceWeather.temperature}° · {provinceWeather.condition} · Humidity {provinceWeather.humidity}% · Wind {provinceWeather.wind_speed} m/s
+                            </div>
+                        </div>
+                        <div style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--i3)' }}>
+                            {travelAdvice(provinceWeather)}
+                        </div>
+                    </div>
+                ) : null}
             </div>
 
             {/* Details */}
@@ -113,7 +153,7 @@ export default function DestinationDetail() {
 
             {/* Reviews */}
             <div className="dc mb16 sr d2">
-                <div className="dc-title" style={{ marginBottom: '16px' }}>Reviews ({destination.review_count})</div>
+                <div className="dc-title" style={{ marginBottom: '16px' }}>Reviews ({destination.total_reviews || destination.review_count || 0})</div>
                 
                 <div style={{ marginBottom: '16px' }}>
                     <button onClick={() => setShowReviewForm(!showReviewForm)} className="s-btn dark">

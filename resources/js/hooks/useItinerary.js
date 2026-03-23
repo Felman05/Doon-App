@@ -22,5 +22,46 @@ export default function useItinerary() {
         },
     });
 
-    return { itinerariesQuery, createItinerary };
+    const addStop = useMutation({
+        mutationFn: async ({ itineraryId, ...payload }) => {
+            const { data } = await api.post(`/itineraries/${itineraryId}/add-stop`, payload);
+            return data;
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['itineraries'] }),
+    });
+
+    const removeStop = useMutation({
+        mutationFn: async ({ itineraryId, stopId }) => {
+            await api.delete(`/itineraries/${itineraryId}/stops/${stopId}`);
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['itineraries'] }),
+    });
+
+    const updateItinerary = useMutation({
+        mutationFn: async ({ itineraryId, ...payload }) => {
+            const { data } = await api.put(`/itineraries/${itineraryId}`, payload);
+            return data;
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['itineraries'] }),
+    });
+
+    const deleteItinerary = useMutation({
+        mutationFn: async (itineraryId) => {
+            await api.delete(`/itineraries/${itineraryId}`);
+        },
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['itineraries'] }),
+    });
+
+    const activeItinerary = (itinerariesQuery.data ?? []).find((i) => i.status === 'planned' || i.status === 'ongoing') || (itinerariesQuery.data ?? [])[0] || null;
+
+    return {
+        itineraries: itinerariesQuery.data ?? [],
+        activeItinerary,
+        isLoading: itinerariesQuery.isLoading,
+        createItinerary,
+        addStop,
+        removeStop,
+        updateItinerary,
+        deleteItinerary,
+    };
 }

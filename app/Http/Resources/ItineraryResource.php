@@ -25,6 +25,7 @@ class ItineraryResource extends JsonResource
             'status' => $this->status,
             'is_ai_generated' => $this->is_ai_generated,
             'items' => ItineraryItemResource::collection($this->whenLoaded('items')),
+            'stops_count' => $this->resource->items->count(),
             'created_at' => $this->created_at,
         ];
     }

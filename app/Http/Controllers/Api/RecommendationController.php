@@ -24,19 +24,24 @@ class RecommendationController extends Controller
             $request->session()->getId(),
         );
 
+        $paginator = $payload['results'];
+
         $this->analyticsLogger->log(
             eventType: 'recommendation_generated',
             userId: $request->user()?->id,
             sessionId: $request->session()->getId(),
             destinationId: null,
             provinceId: $request->integer('province_id') ?: null,
-            metadata: ['filters' => $request->validated(), 'count' => $payload['results']->count()],
+            metadata: ['filters' => $request->validated(), 'count' => $paginator->total()],
             request: $request,
         );
 
         return response()->json([
-            'request_id' => $payload['request']->id,
-            'data' => DestinationResource::collection($payload['results']),
+            'request_id' => $payload['request']?->id,
+            'data' => DestinationResource::collection($paginator->items()),
+            'total' => $paginator->total(),
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
         ]);
     }
 }

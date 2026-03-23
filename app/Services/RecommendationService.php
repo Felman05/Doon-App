@@ -5,116 +5,136 @@ namespace App\Services;
 use App\Models\Destination;
 use App\Models\RecommendationRequest;
 use App\Models\RecommendationResult;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class RecommendationService
 {
     public function recommend(array $filters, ?int $userId = null, ?string $sessionId = null): array
     {
         $start = microtime(true);
+        $page = max((int) ($filters['page'] ?? 1), 1);
+        $people = $filters['number_of_people'] ?? $filters['people'] ?? null;
+        $duration = $filters['trip_duration'] ?? $filters['duration'] ?? null;
+        $provinceId = $filters['province_id'] ?? null;
+        $destinationTable = (new Destination())->getTable();
+        $hasIsActive = Schema::hasColumn($destinationTable, 'is_active');
+        $hasIsVerified = Schema::hasColumn($destinationTable, 'is_verified');
+        $hasCapacity = Schema::hasColumn($destinationTable, 'capacity_per_day');
+        $hasAvgDuration = Schema::hasColumn($destinationTable, 'avg_duration_hours');
+        $hasAvgRating = Schema::hasColumn($destinationTable, 'avg_rating');
+
+        $hasValue = static function (array $input, string $key): bool {
+            if (! array_key_exists($key, $input)) {
+                return false;
+            }
+
+            return $input[$key] !== null && $input[$key] !== '';
+        };
 
         $query = Destination::query()
-            ->with(['province', 'category'])
-            ->where('is_active', true)
-            ->where('is_verified', true);
+            ->with(['province', 'category']);
 
-        if (! empty($filters['province_id'])) {
-            $query->where('province_id', $filters['province_id']);
+        if ($hasIsActive) {
+            $query->where('is_active', true);
         }
 
-        if (! empty($filters['theme'])) {
+        if ($hasIsVerified) {
+            $query->where('is_verified', true);
+        }
+
+        if ($hasValue($filters, 'budget')) {
+            $query->where('price_label', $filters['budget']);
+        }
+
+        if ($hasValue($filters, 'theme')) {
             $query->whereHas('category', fn ($q) => $q->where('slug', $filters['theme']));
         }
 
-        if (! empty($filters['budget'])) {
-            $this->applyBudgetFilter($query, $filters['budget']);
+        if ($people !== null && $people !== '' && is_numeric($people)) {
+            if ($hasCapacity) {
+                $query->where(function ($q) use ($people): void {
+                    $q->where('capacity_per_day', '>=', $people)
+                        ->orWhereNull('capacity_per_day');
+                });
+            }
         }
 
-        $destinations = $query->limit(100)->get();
+        if ($duration !== null && $duration !== '' && is_numeric($duration)) {
+            $maxHours = ((int) $duration) * 8;
+            if ($hasAvgDuration) {
+                $query->where(function ($q) use ($maxHours): void {
+                    $q->where('avg_duration_hours', '<=', $maxHours)
+                        ->orWhereNull('avg_duration_hours');
+                });
+            }
+        }
 
-        $ranked = $this->scoreDestinations($destinations, $filters)
-            ->sortByDesc('score')
-            ->values();
+        if ($provinceId !== null && $provinceId !== '' && is_numeric($provinceId)) {
+            $query->where('province_id', (int) $provinceId);
+        }
 
-        $requestModel = RecommendationRequest::create([
-            'user_id' => $userId,
-            'session_id' => $sessionId,
-            'budget_amount' => $filters['budget_amount'] ?? null,
-            'budget_label' => $filters['budget'] ?? null,
-            'theme' => $filters['theme'] ?? null,
-            'number_of_people' => $filters['number_of_people'] ?? null,
-            'trip_duration_days' => $filters['trip_duration'] ?? null,
-            'province_id' => $filters['province_id'] ?? null,
-            'generational_profile' => $filters['generational_profile'] ?? null,
-            'results_count' => $ranked->count(),
-            'response_time_ms' => (int) ((microtime(true) - $start) * 1000),
-            'created_at' => now(),
-        ]);
+        if (! empty($filters['province_ids']) && is_array($filters['province_ids'])) {
+            $provinceIds = collect($filters['province_ids'])
+                ->filter(fn ($value) => is_numeric($value))
+                ->map(fn ($value) => (int) $value)
+                ->unique()
+                ->values()
+                ->all();
 
-        foreach ($ranked->take(20) as $index => $row) {
-            RecommendationResult::create([
-                'request_id' => $requestModel->id,
-                'destination_id' => $row['destination']->id,
-                'score' => $row['score'],
-                'rank_position' => $index + 1,
+            if ($provinceIds !== []) {
+                $query->whereIn('province_id', $provinceIds);
+            }
+        }
+
+        if (! empty($filters['min_rating']) && $hasAvgRating) {
+            $query->where('avg_rating', '>=', (float) $filters['min_rating']);
+        }
+
+        if ($hasAvgRating) {
+            $query->orderByDesc('avg_rating');
+        }
+
+        /** @var LengthAwarePaginator $results */
+        $results = $query->paginate(10, ['*'], 'page', $page);
+
+        $resultItems = collect($results->items());
+
+        $requestModel = null;
+
+        try {
+            $requestModel = RecommendationRequest::create([
+                'user_id' => $userId,
+                'session_id' => $sessionId,
+                'budget_amount' => $filters['budget_amount'] ?? null,
+                'budget_label' => $filters['budget'] ?? null,
+                'theme' => $filters['theme'] ?? null,
+                'number_of_people' => $people,
+                'trip_duration_days' => $duration,
+                'province_id' => $provinceId,
+                'generational_profile' => $filters['generational_profile'] ?? null,
+                'results_count' => $results->total(),
+                'response_time_ms' => (int) ((microtime(true) - $start) * 1000),
                 'created_at' => now(),
             ]);
+
+            foreach ($resultItems as $index => $destination) {
+                RecommendationResult::create([
+                    'request_id' => $requestModel->id,
+                    'destination_id' => $destination->id,
+                    'score' => (float) ($destination->avg_rating ?? 0),
+                    'rank_position' => (($page - 1) * 10) + $index + 1,
+                    'created_at' => now(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Recommendation analytics persistence skipped', ['error' => $e->getMessage()]);
         }
 
         return [
             'request' => $requestModel,
-            'results' => $ranked->pluck('destination')->take(20)->values(),
+            'results' => $results,
         ];
-    }
-
-    private function applyBudgetFilter($query, string $budget): void
-    {
-        $query->where(function ($q) use ($budget): void {
-            if ($budget === 'free') {
-                $q->where('price_label', 'free')->orWhere('price_min', 0);
-            }
-
-            if ($budget === 'budget') {
-                $q->whereIn('price_label', ['free', 'budget'])->orWhere('price_max', '<=', 1500);
-            }
-
-            if ($budget === 'mid_range') {
-                $q->whereIn('price_label', ['budget', 'mid_range'])->orWhereBetween('price_max', [500, 5000]);
-            }
-
-            if ($budget === 'luxury') {
-                $q->whereIn('price_label', ['mid_range', 'luxury'])->orWhere('price_max', '>=', 3000);
-            }
-        });
-    }
-
-    private function scoreDestinations(Collection $destinations, array $filters): Collection
-    {
-        return $destinations->map(function (Destination $destination) use ($filters): array {
-            $score = 0.5;
-
-            if (! empty($filters['generational_profile']) && is_array($destination->generational_appeal)) {
-                $appeal = (float) ($destination->generational_appeal[$filters['generational_profile']] ?? 5);
-                $score += ($appeal / 10) * 0.25;
-            }
-
-            if (! empty($filters['trip_duration']) && $destination->avg_duration_hours) {
-                $tripHours = ((int) $filters['trip_duration']) * 8;
-                $durationDelta = abs($tripHours - (float) $destination->avg_duration_hours);
-                $score += max(0, (1 - ($durationDelta / max($tripHours, 1)))) * 0.15;
-            }
-
-            if (! empty($filters['number_of_people']) && $destination->capacity_per_day) {
-                $people = (int) $filters['number_of_people'];
-                if ($destination->capacity_per_day >= $people) {
-                    $score += 0.1;
-                }
-            }
-
-            return [
-                'destination' => $destination,
-                'score' => round(min($score, 1), 4),
-            ];
-        });
     }
 }

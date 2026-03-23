@@ -19,6 +19,8 @@ class DestinationController extends Controller
     {
         $query = Destination::query()->with(['province', 'category']);
 
+        $query->where('is_active', true)->where('is_verified', true);
+
         if ($request->filled('province_id')) {
             $query->where('province_id', $request->integer('province_id'));
         }
@@ -27,11 +29,9 @@ class DestinationController extends Controller
             $query->where('category_id', $request->integer('category_id'));
         }
 
-        if ($request->filled('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
-        }
+        $perPage = max(1, min($request->integer('per_page', 12), 500));
 
-        return DestinationResource::collection($query->latest()->paginate(12));
+        return DestinationResource::collection($query->latest()->paginate($perPage));
     }
 
     public function store(DestinationStoreRequest $request): JsonResponse

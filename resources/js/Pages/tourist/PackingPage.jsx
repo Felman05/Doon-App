@@ -1,27 +1,95 @@
-import { useState, useContext } from 'react';
+import { useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/axios';
-import { ToastContext } from '../../context/ToastContext';
-import Skeleton from '../../components/ui/Skeleton';
 
-export default function PackingPage() {
-    const { addToast } = useContext(ToastContext) || {};
+const categoryIdMap = {
+    beach: 2,
+    mountain: 1,
+    city: 3,
+    adventure: 5,
+};
+
+const weatherMap = {
+    clear: 'sunny',
+    rainy: 'rainy',
+    hot: 'sunny',
+    cold: 'cold',
+};
+
+const categoryProvinceMap = {
+    beach: 'Batangas',
+    mountain: 'Rizal',
+    city: 'Cavite',
+    adventure: 'Laguna',
+};
+
+export default function PackingPage({ weatherState }) {
+    const weather = weatherState?.weather ?? [];
     const [selectedDestId, setSelectedDestId] = useState('');
-    const [selectedWeather, setSelectedWeather] = useState('clear');
+    const [selectedWeather, setSelectedWeather] = useState('');
+    const [selectedProvince, setSelectedProvince] = useState('Batangas');
+    const [isWeatherManuallyOverridden, setIsWeatherManuallyOverridden] = useState(false);
 
-    const { data: packing } = useQuery({
+    const mappedCategoryId = categoryIdMap[selectedDestId] ?? null;
+    const mappedWeatherCondition = weatherMap[selectedWeather] ?? null;
+    const provinceWeather = useMemo(
+        () => weather.find((entry) => entry.province === selectedProvince),
+        [weather, selectedProvince]
+    );
+
+    useEffect(() => {
+        if (!selectedDestId) {
+            return;
+        }
+
+        setSelectedProvince(categoryProvinceMap[selectedDestId] || 'Batangas');
+        setIsWeatherManuallyOverridden(false);
+    }, [selectedDestId]);
+
+    useEffect(() => {
+        if (!selectedDestId || isWeatherManuallyOverridden || !provinceWeather) {
+            return;
+        }
+
+        const condition = String(provinceWeather.condition || '').toLowerCase();
+        const temperature = Number(provinceWeather.temperature);
+
+        if (condition.includes('rain')) {
+            setSelectedWeather('rainy');
+            return;
+        }
+
+        if (Number.isFinite(temperature) && temperature <= 22) {
+            setSelectedWeather('cold');
+            return;
+        }
+
+        if (Number.isFinite(temperature) && temperature >= 30) {
+            setSelectedWeather('clear');
+            return;
+        }
+
+        if (condition.includes('clear')) {
+            setSelectedWeather('clear');
+            return;
+        }
+
+        setSelectedWeather('clear');
+    }, [selectedDestId, isWeatherManuallyOverridden, provinceWeather]);
+
+    const { data: packing, isLoading } = useQuery({
         queryKey: ['packing', selectedDestId, selectedWeather],
         queryFn: async () => {
-            if (!selectedDestId) return null;
             const { data } = await api.get('/packing', {
                 params: {
-                    category_id: selectedDestId,
-                    weather_condition: selectedWeather,
+                    category_id: mappedCategoryId,
+                    weather_condition: mappedWeatherCondition,
                 },
             });
             return data.data;
         },
-        enabled: !!selectedDestId,
+        enabled: Boolean(mappedCategoryId && mappedWeatherCondition),
     });
 
     const categories = [
@@ -40,6 +108,15 @@ export default function PackingPage() {
 
     const handlePrint = () => {
         window.print();
+    };
+
+    const renderPackingLabel = (entry) => {
+        if (typeof entry === 'string' || typeof entry === 'number') return String(entry);
+        if (entry && typeof entry === 'object') {
+            if (typeof entry.item === 'string' || typeof entry.item === 'number') return String(entry.item);
+            if (typeof entry.label === 'string' || typeof entry.label === 'number') return String(entry.label);
+        }
+        return 'Item';
     };
 
     return (
@@ -68,20 +145,55 @@ export default function PackingPage() {
                 </div>
 
                 <div className="dc-title" style={{ marginBottom: '16px' }}>Weather Condition</div>
+                <div style={{ marginBottom: '10px' }}>
+                    <select
+                        className="form-input"
+                        value={selectedProvince}
+                        onChange={(event) => {
+                            setSelectedProvince(event.target.value);
+                            setIsWeatherManuallyOverridden(false);
+                        }}
+                    >
+                        {['Batangas', 'Laguna', 'Cavite', 'Rizal', 'Quezon'].map((province) => (
+                            <option key={province} value={province}>{province}</option>
+                        ))}
+                    </select>
+                </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
                     {weatherOpts.map(w => (
                         <button
                             key={w.id}
-                            onClick={() => setSelectedWeather(w.id)}
+                            onClick={() => {
+                                setSelectedWeather(w.id);
+                                setIsWeatherManuallyOverridden(true);
+                            }}
                             className={`s-btn ${selectedWeather === w.id ? 'dark' : ''}`}
                         >
                             {w.label}
                         </button>
                     ))}
                 </div>
+                {selectedDestId && provinceWeather ? (
+                    <div style={{ fontSize: '12px', color: 'var(--i4)', marginTop: '-8px', marginBottom: '12px' }}>
+                        Auto-detected from current {selectedProvince} weather
+                    </div>
+                ) : null}
             </div>
 
-            {selectedDestId && packing && (
+            {!mappedCategoryId || !mappedWeatherCondition ? (
+                <div className="dc mb16 sr d1" style={{ fontSize: '13px', color: 'var(--i4)' }}>
+                    Select a destination type and weather condition to get your packing list
+                </div>
+            ) : null}
+
+            {isLoading ? (
+                <div className="dc mb16 sr d1" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--i3)' }}>
+                    <span className="loading-spinner" />
+                    Loading packing list...
+                </div>
+            ) : null}
+
+            {mappedCategoryId && mappedWeatherCondition && packing && !isLoading && (
                 <div className="dc mb16 sr d1">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                         <div className="dc-title">Packing List</div>
@@ -90,10 +202,10 @@ export default function PackingPage() {
 
                     {packing.essentials && (
                         <>
-                            <div className="sub-lbl">Essentials</div>
+                            <div className="sub-lbl">Essential items</div>
                             <div className="pack-row" style={{ marginBottom: '16px' }}>
                                 {packing.essentials.map((item, i) => (
-                                    <span key={i} className="pack-chip ess">{item}</span>
+                                    <span key={i} className="pack-chip ess">{renderPackingLabel(item)}</span>
                                 ))}
                             </div>
                         </>
@@ -104,16 +216,17 @@ export default function PackingPage() {
                             <div className="sub-lbl">Recommended</div>
                             <div className="pack-row" style={{ marginBottom: '16px' }}>
                                 {packing.recommended.map((item, i) => (
-                                    <span key={i} className="pack-chip">{item}</span>
+                                    <span key={i} className="pack-chip">{renderPackingLabel(item)}</span>
                                 ))}
                             </div>
                         </>
                     )}
 
-                    {packing.tip && (
-                        <div style={{ padding: '12px 14px', background: 'var(--bg)', borderRadius: 'var(--r2)', fontSize: '13px', color: 'var(--i3)', lineHeight: '1.6' }}>
-                            <strong>💡 Tip:</strong> {packing.tip}
-                        </div>
+                    {(packing.tip || packing.wardrobe_tip) && (
+                        <>
+                            <div className="sub-lbl">Wardrobe tip</div>
+                            <p style={{ fontSize: '13px', color: 'var(--i3)', lineHeight: '1.6' }}>{packing.tip || packing.wardrobe_tip}</p>
+                        </>
                     )}
                 </div>
             )}

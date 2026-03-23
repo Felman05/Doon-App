@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AdminController;
+use App\Http\Controllers\Api\AdminController;
 use App\Http\Middleware\AdminMiddleware;
 
 Route::middleware([AdminMiddleware::class])->group(function () {

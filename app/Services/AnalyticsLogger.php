@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AnalyticsEvent;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AnalyticsLogger
 {
@@ -16,7 +17,7 @@ class AnalyticsLogger
         array $metadata,
         ?Request $request = null,
     ): AnalyticsEvent {
-        return AnalyticsEvent::create([
+        $payload = [
             'user_id' => $userId,
             'session_id' => $sessionId,
             'event_type' => $eventType,
@@ -26,6 +27,17 @@ class AnalyticsLogger
             'ip_address' => $request?->ip(),
             'user_agent' => $request?->userAgent(),
             'created_at' => now(),
-        ]);
+        ];
+
+        try {
+            return AnalyticsEvent::create($payload);
+        } catch (\Throwable $e) {
+            Log::warning('Analytics event persistence skipped', [
+                'event_type' => $eventType,
+                'error' => $e->getMessage(),
+            ]);
+
+            return new AnalyticsEvent($payload);
+        }
     }
 }

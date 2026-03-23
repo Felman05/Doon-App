@@ -23,6 +23,7 @@ class DestinationResource extends JsonResource
             'price_label' => $this->price_label,
             'avg_rating' => $this->avg_rating,
             'total_reviews' => $this->total_reviews,
+            'avg_duration_hours' => $this->avg_duration_hours,
             'is_active' => $this->is_active,
             'is_verified' => $this->is_verified,
             'province' => $this->whenLoaded('province', fn () => [

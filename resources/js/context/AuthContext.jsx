@@ -5,8 +5,13 @@ import api from '../lib/axios';
 import { getApiOrigin } from '../lib/apiBase';
 
 const AuthContext = createContext(null);
+const CHATBOT_STORAGE_KEY = 'doon_chatbot_token';
 
 export function AuthProvider({ children }) {
+    const clearChatbotSession = useCallback(() => {
+        localStorage.removeItem(CHATBOT_STORAGE_KEY);
+    }, []);
+
     const location = useLocation();
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -51,22 +56,25 @@ export function AuthProvider({ children }) {
 
     const login = useCallback(async (payload) => {
         await csrf();
+        clearChatbotSession();
         const { data } = await api.post('/auth/login', payload);
         setUser(data.user);
         return data.user;
-    }, [csrf]);
+    }, [csrf, clearChatbotSession]);
 
     const register = useCallback(async (payload) => {
         await csrf();
+        clearChatbotSession();
         const { data } = await api.post('/auth/register', payload);
         setUser(data.user);
         return data.user;
-    }, [csrf]);
+    }, [csrf, clearChatbotSession]);
 
     const logout = useCallback(async () => {
         await api.post('/auth/logout').catch(() => {});
+        clearChatbotSession();
         setUser(null);
-    }, []);
+    }, [clearChatbotSession]);
 
     const value = useMemo(() => ({
         user,

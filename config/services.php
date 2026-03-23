@@ -47,7 +47,7 @@ return [
     'openrouter' => [
         'key'      => env('OPENROUTER_API_KEY'),
         'base_url' => env('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
-        'model'    => env('OPENROUTER_MODEL', 'meta-llama/llama-3.1-8b-instruct:free'),
+        'model'    => env('OPENROUTER_MODEL', 'openai/gpt-4o-mini'),
     ],
 
     'gemini' => [

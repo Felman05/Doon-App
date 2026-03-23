@@ -32,34 +32,36 @@ export default function DestinationsPage() {
             </div>
 
             {destinations.length ? (
-                < className="d-table" style={{ borderRadius: 'var(--r2)', border: '1px solid var(--bd)', overflow: 'hidden', background: 'var(--wh)' }}>
-                    <table className="d-table" style={{ width: '100%' }}>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Province</th>
-                                <th>Category</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {destinations.map(dest => (
-                                <tr key={dest.id}>
-                                    <td>{dest.name}</td>
-                                    <td>{dest.province}</td>
-                                    <td>{dest.category}</td>
-                                    <td><span className={`pill p-${dest.status === 'active' ? 'g' : 'n'}`}>{dest.status}</span></td>
-                                    <td>
-                                        <button className="s-btn" style={{ fontSize: '11px' }}>Edit</button>
-                                        <button onClick={() => setToDelete(dest.id)} className="s-btn" style={{ fontSize: '11px' }}>Delete</button>
-                                    </td>
+                <>
+                    <div className="d-table" style={{ borderRadius: 'var(--r2)', border: '1px solid var(--bd)', overflow: 'hidden', background: 'var(--wh)' }}>
+                        <table className="d-table" style={{ width: '100%' }}>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Province</th>
+                                    <th>Category</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-                {last_page > 1 && <Pagination currentPage={page} totalPages={last_page} onPageChange={setPage} totalResults={total} />}
+                            </thead>
+                            <tbody>
+                                {destinations.map(dest => (
+                                    <tr key={dest.id}>
+                                        <td>{dest.name}</td>
+                                        <td>{dest.province}</td>
+                                        <td>{dest.category}</td>
+                                        <td><span className={`pill p-${dest.status === 'active' ? 'g' : 'n'}`}>{dest.status}</span></td>
+                                        <td>
+                                            <button className="s-btn" style={{ fontSize: '11px' }}>Edit</button>
+                                            <button onClick={() => setToDelete(dest.id)} className="s-btn" style={{ fontSize: '11px' }}>Delete</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    {last_page > 1 && <Pagination currentPage={page} totalPages={last_page} onPageChange={setPage} totalResults={total} />}
+                </>
             ) : (
                 <EmptyState icon="🗺️" title="No destinations" />
             )}

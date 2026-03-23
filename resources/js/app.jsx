@@ -12,18 +12,24 @@ import GlobalEffects from './components/ui/GlobalEffects';
 import ScrollRevealEffects from './components/ui/ScrollRevealEffects';
 import Toast from './components/ui/Toast';
 
+function AppShell() {
+    return (
+        <ToastProvider>
+            <AuthProvider>
+                <GlobalEffects enableCursor />
+                <ScrollRevealEffects />
+                <Toast />
+                <AppRouter />
+            </AuthProvider>
+        </ToastProvider>
+    );
+}
+
 createRoot(document.getElementById('root')).render(
     <StrictMode>
         <QueryClientProvider client={queryClient}>
             <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-                <ToastProvider>
-                    <AuthProvider>
-                        <GlobalEffects />
-                        <ScrollRevealEffects />
-                        <Toast />
-                        <AppRouter />
-                    </AuthProvider>
-                </ToastProvider>
+                <AppShell />
             </BrowserRouter>
         </QueryClientProvider>
     </StrictMode>,

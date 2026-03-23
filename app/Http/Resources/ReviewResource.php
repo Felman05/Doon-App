@@ -20,6 +20,11 @@ class ReviewResource extends JsonResource
             'visit_date' => $this->visit_date,
             'helpful_count' => $this->helpful_count,
             'is_published' => $this->is_published,
+            'destination' => $this->destination ? [
+                'id' => $this->destination->id,
+                'name' => $this->destination->name,
+                'province' => $this->destination->province?->name,
+            ] : null,
             'created_at' => $this->created_at,
         ];
     }
