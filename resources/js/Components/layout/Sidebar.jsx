@@ -16,6 +16,12 @@ const roleIcons = {
 export default function Sidebar({ role = 'tourist', activeItem = 'Dashboard', onSelect, routes = null, currentPath = '' }) {
     const { user, logout } = useAuth();
     const location = useLocation();
+    const roleBasePaths = {
+        tourist: '/dashboard',
+        local: '/provider',
+        admin: '/admin',
+    };
+    const basePath = roleBasePaths[role] || '/dashboard';
     const menuItems = Array.isArray(routes) && routes.length
         ? routes
         : (roleMenus[role] || []).map((label) => ({ path: '', label }));
@@ -30,12 +36,22 @@ export default function Sidebar({ role = 'tourist', activeItem = 'Dashboard', on
 
     const pathname = normalizePath(location.pathname);
 
-    const isTouristRouteActive = (itemPath) => {
-        const target = itemPath ? `/dashboard/${itemPath}` : '/dashboard';
+    const buildTargetPath = (itemPath) => {
+        const cleanItemPath = String(itemPath || '').replace(/^\/+|\/+$/g, '');
+
+        if (!cleanItemPath) {
+            return basePath;
+        }
+
+        return `${basePath}/${cleanItemPath}`;
+    };
+
+    const isRouteActive = (itemPath) => {
+        const target = buildTargetPath(itemPath);
         const normalizedTarget = normalizePath(target);
 
-        if (normalizedTarget === '/dashboard') {
-            return pathname === '/dashboard';
+        if (normalizedTarget === basePath) {
+            return pathname === basePath;
         }
 
         return pathname === normalizedTarget || pathname.startsWith(`${normalizedTarget}/`);
@@ -58,11 +74,11 @@ export default function Sidebar({ role = 'tourist', activeItem = 'Dashboard', on
                     const path = item.path ?? '';
                     const isRouteMode = Array.isArray(routes) && routes.length > 0;
                     const isActive = isRouteMode
-                        ? isTouristRouteActive(path)
+                        ? isRouteActive(path)
                         : activeItem === label;
 
                     if (isRouteMode) {
-                        const to = path ? `/dashboard/${path}` : '/dashboard';
+                        const to = buildTargetPath(path);
                         return (
                             <Link key={label} to={to} className={`sb-item ${isActive ? 'active' : ''}`}>
                                 <span className="sb-ico">{roleIcons[role]?.[index] ?? '•'}</span>

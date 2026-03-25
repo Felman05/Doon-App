@@ -58,21 +58,21 @@ export default function AdminDashboard() {
                 </div>
 
                 <Routes>
-                    <Route path="/" element={<AdminHome />} />
-                    <Route path="/dashboard" element={<DashboardPage />} />
-                    <Route path="/destinations" element={<DestinationsPage />} />
-                    <Route path="/bookings" element={<BookingsPage />} />
-                    <Route path="/users" element={<UsersPage />} />
-                    <Route path="/categories" element={<CategoriesPage />} />
-                    <Route path="/reviews" element={<ReviewsPage />} />
-                    <Route path="/promo-codes" element={<PromoCodesPage />} />
-                    <Route path="/media" element={<MediaManagementPage />} />
-                    <Route path="/notifications" element={<NotificationsPage />} />
-                    <Route path="/reports" element={<ReportsPage />} />
-                    <Route path="/activity-logs" element={<ActivityLogsPage />} />
-                    <Route path="/system-health" element={<SystemHealthPage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="*" element={<Navigate to="/" replace />} />
+                    <Route index element={<AdminHome />} />
+                    <Route path="dashboard" element={<DashboardPage />} />
+                    <Route path="destinations" element={<DestinationsPage />} />
+                    <Route path="bookings" element={<BookingsPage />} />
+                    <Route path="users" element={<UsersPage />} />
+                    <Route path="categories" element={<CategoriesPage />} />
+                    <Route path="reviews" element={<ReviewsPage />} />
+                    <Route path="promo-codes" element={<PromoCodesPage />} />
+                    <Route path="media" element={<MediaManagementPage />} />
+                    <Route path="notifications" element={<NotificationsPage />} />
+                    <Route path="reports" element={<ReportsPage />} />
+                    <Route path="activity-logs" element={<ActivityLogsPage />} />
+                    <Route path="system-health" element={<SystemHealthPage />} />
+                    <Route path="settings" element={<SettingsPage />} />
+                    <Route path="*" element={<Navigate to="." replace />} />
                 </Routes>
             </main>
         </div>

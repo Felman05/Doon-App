@@ -3,13 +3,23 @@ import api from '../../lib/axios';
 import Skeleton from '../../components/ui/Skeleton';
 
 export default function ProviderHome() {
-    const { data: stats, isLoading } = useQuery({
+    const { data: stats, isLoading, isError } = useQuery({
         queryKey: ['provider-stats'],
         queryFn: async () => {
             const { data } = await api.get('/provider/stats');
-            return data.data;
+            return data;
         },
+        retry: 1,
+        staleTime: 3 * 60 * 1000,
     });
+
+    if (isError) {
+        return (
+            <div style={{ padding: '20px', color: 'var(--r)', fontSize: '14px' }}>
+                Failed to load dashboard. Please refresh the page.
+            </div>
+        );
+    }
 
     if (isLoading) {
         return (
@@ -42,11 +52,11 @@ export default function ProviderHome() {
                 <div className="kpi sr d2">
                     <div className="kpi-lbl">Active Listings</div>
                     <div className="kpi-val">{stats?.active_listings || 0}</div>
-                    <div className="kpi-sub kpi-up">+2 this month</div>
+                    <div className="kpi-sub">{stats?.pending_listings || 0} pending</div>
                 </div>
                 <div className="kpi sr d3">
                     <div className="kpi-lbl">Recommendation Appearances</div>
-                    <div className="kpi-val">{stats?.recommendation_appearances || 0}</div>
+                    <div className="kpi-val">{stats?.rec_appearances || 0}</div>
                     <div className="kpi-sub">Times featured</div>
                 </div>
             </div>

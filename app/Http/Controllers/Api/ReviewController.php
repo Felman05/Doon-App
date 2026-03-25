@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\ReviewStoreRequest;
 use App\Http\Requests\Api\ReviewUpdateRequest;
 use App\Http\Resources\ReviewResource;
+use App\Models\ProviderListing;
 use App\Models\Review;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,10 +15,24 @@ class ReviewController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Review::query()->with(['destination.province']);
+        $query = Review::query()->with(['destination.province', 'user']);
 
         if ($request->boolean('mine')) {
             $query->where('user_id', $request->user()->id);
+        }
+
+        $providerFilter = $request->query('provider');
+        if ($providerFilter === 'me' || ($request->boolean('provider') && $request->boolean('mine'))) {
+            $provider = $request->user()?->localProviderProfile;
+            if ($provider) {
+                $destinationIds = ProviderListing::where('provider_id', $provider->id)
+                    ->whereNotNull('destination_id')
+                    ->pluck('destination_id');
+
+                $query->whereIn('destination_id', $destinationIds);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
         }
 
         $reviews = $query->latest('created_at')->get();

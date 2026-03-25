@@ -2,9 +2,6 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { useContext, useState } from 'react';
 import api from '../../lib/axios';
 import { ToastContext } from '../../context/ToastContext';
-import Skeleton from '../../components/ui/Skeleton';
-import ConfirmationDialog from '../../components/ui/ConfirmationDialog';
-import EmptyState from '../../components/ui/EmptyState';
 
 export default function NewListingPage() {
     const { addToast } = useContext(ToastContext) || {};
@@ -26,8 +23,59 @@ export default function NewListingPage() {
         short_description: '',
     });
 
+    const { data: providerStats } = useQuery({
+        queryKey: ['provider-stats-for-submit'],
+        queryFn: async () => {
+            const { data } = await api.get('/provider/stats');
+            return data;
+        },
+    });
+
+    const mapListingType = (value) => {
+        const map = {
+            Accommodation: 'accommodation',
+            'Tour Package': 'tour_package',
+            Restaurant: 'restaurant',
+            Transport: 'transport',
+            Event: 'event',
+            Other: 'other',
+            Activity: 'other',
+        };
+
+        return map[value] || 'other';
+    };
+
+    const inferPriceLabel = (price) => {
+        const amount = Number(price || 0);
+        if (amount <= 0) return 'free';
+        if (amount <= 1000) return 'budget';
+        if (amount <= 3000) return 'mid_range';
+        return 'luxury';
+    };
+
     const submitMutation = useMutation({
-        mutationFn: () => api.post('/provider/listings', form),
+        mutationFn: () => {
+            const payload = {
+                provider_id: providerStats?.provider_id,
+                destination_id: null,
+                listing_title: form.title,
+                listing_type: mapListingType(form.type),
+                description: form.description,
+                images: [],
+                price: form.price ? Number(form.price) : null,
+                price_label: inferPriceLabel(form.price),
+                capacity: form.capacity ? Number(form.capacity) : null,
+                contact_number: form.contact,
+                availability: {
+                    opening_time: form.opening_time || null,
+                    closing_time: form.closing_time || null,
+                    open_days: form.open_days,
+                },
+                status: 'pending',
+            };
+
+            return api.post('/provider-listings', payload);
+        },
         onSuccess: () => {
             addToast?.('Listing submitted for review!', 'success');
             setForm({
@@ -37,7 +85,10 @@ export default function NewListingPage() {
                 website: '', description: '', short_description: '',
             });
         },
-        onError: () => addToast?.('Failed to submit listing', 'error'),
+        onError: (error) => {
+            const message = error?.response?.data?.message || 'Failed to submit listing';
+            addToast?.(message, 'error');
+        },
     });
 
     const provinceOpts = ['Batangas', 'Laguna', 'Cavite', 'Rizal', 'Quezon'];
@@ -150,15 +201,15 @@ export default function NewListingPage() {
                 </div>
 
                 <p style={{ fontSize: '12px', color: 'var(--i4)', marginBottom: '16px' }}>
-                    ℹ️ Listings are reviewed by Admin within 1–2 business days.
+                    Listings are reviewed by Admin within 1-2 business days.
                 </p>
 
                 <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => submitMutation.mutate()} className="s-btn dark">
-                        📤 Submit for Review
+                    <button onClick={() => submitMutation.mutate()} className="s-btn dark" disabled={!providerStats?.provider_id || submitMutation.isPending}>
+                        {submitMutation.isPending ? 'Submitting...' : 'Submit for Review'}
                     </button>
-                    <button className="s-btn">
-                        💾 Save as Draft
+                    <button className="s-btn" type="button" disabled>
+                        Save as Draft
                     </button>
                 </div>
             </div>

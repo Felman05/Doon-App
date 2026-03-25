@@ -1,9 +1,50 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Footer from '../components/layout/Footer';
 import Navbar from '../components/layout/Navbar';
 import CountUp from '../components/ui/CountUp';
+import api from '../lib/axios';
 
 export default function LandingPage() {
+    const [stats, setStats] = useState({
+        destinations_count: 0,
+        users_count: 0,
+        provinces_count: 5,
+        monthly_requests: 0,
+    });
+    const [provinces, setProvinces] = useState([]);
+
+    useEffect(() => {
+        api.get('/stats')
+            .then((res) => {
+                setStats((prev) => ({
+                    ...prev,
+                    ...(res.data || {}),
+                }));
+            })
+            .catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        api.get('/provinces')
+            .then((res) => {
+                setProvinces(res.data.data || []);
+            })
+            .catch(() => {});
+    }, []);
+
+    const provinceCounts = useMemo(() => {
+        const byName = new Map((provinces || []).map((province) => [province.name, province.destinations_count || 0]));
+
+        return {
+            Batangas: byName.get('Batangas') || 0,
+            Laguna: byName.get('Laguna') || 0,
+            Cavite: byName.get('Cavite') || 0,
+            Rizal: byName.get('Rizal') || 0,
+            Quezon: byName.get('Quezon') || 0,
+        };
+    }, [provinces]);
+
     return (
         <div className="pg on" id="pg-land">
             <Navbar />
@@ -25,10 +66,10 @@ export default function LandingPage() {
 
             {/* Stats Strip */}
             <div className="strip">
-                <div className="strip-item"><div className="strip-num"><CountUp value={287} /></div><div className="strip-lbl">Destinations</div></div>
-                <div className="strip-item"><div className="strip-num"><CountUp value={3841} /></div><div className="strip-lbl">Registered users</div></div>
-                <div className="strip-item"><div className="strip-num"><CountUp value={5} /></div><div className="strip-lbl">Provinces covered</div></div>
-                <div className="strip-item"><div className="strip-num"><CountUp value={18400} /></div><div className="strip-lbl">Monthly AI requests</div></div>
+                <div className="strip-item"><div className="strip-num"><CountUp value={stats.destinations_count} /></div><div className="strip-lbl">Destinations</div></div>
+                <div className="strip-item"><div className="strip-num"><CountUp value={stats.users_count} /></div><div className="strip-lbl">Registered users</div></div>
+                <div className="strip-item"><div className="strip-num"><CountUp value={stats.provinces_count} /></div><div className="strip-lbl">Provinces covered</div></div>
+                <div className="strip-item"><div className="strip-num"><CountUp value={stats.monthly_requests} /></div><div className="strip-lbl">Monthly AI requests</div></div>
             </div>
 
             {/* Features Section */}
@@ -90,31 +131,31 @@ export default function LandingPage() {
                         <div className="prov-card sr">
                             <span className="prov-emo">🏖️</span>
                             <div className="prov-name">Batangas</div>
-                            <div className="prov-n">The Beach Paradise</div>
+                            <div className="prov-n">{provinceCounts.Batangas} destinations</div>
                             <div className="prov-bar"></div>
                         </div>
                         <div className="prov-card sr d1">
                             <span className="prov-emo">🏞️</span>
                             <div className="prov-name">Laguna</div>
-                            <div className="prov-n">Mountains & Lakes</div>
+                            <div className="prov-n">{provinceCounts.Laguna} destinations</div>
                             <div className="prov-bar"></div>
                         </div>
                         <div className="prov-card sr d2">
                             <span className="prov-emo">🏰</span>
                             <div className="prov-name">Cavite</div>
-                            <div className="prov-n">Historical Heritage</div>
+                            <div className="prov-n">{provinceCounts.Cavite} destinations</div>
                             <div className="prov-bar"></div>
                         </div>
                         <div className="prov-card sr d3">
                             <span className="prov-emo">🗻</span>
                             <div className="prov-name">Rizal</div>
-                            <div className="prov-n">Highland Adventures</div>
+                            <div className="prov-n">{provinceCounts.Rizal} destinations</div>
                             <div className="prov-bar"></div>
                         </div>
                         <div className="prov-card sr d4">
                             <span className="prov-emo">🌾</span>
                             <div className="prov-name">Quezon</div>
-                            <div className="prov-n">Nature & Culture</div>
+                            <div className="prov-n">{provinceCounts.Quezon} destinations</div>
                             <div className="prov-bar"></div>
                         </div>
                     </div>

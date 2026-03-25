@@ -43,13 +43,13 @@ export default function LocalDashboard() {
                 </div>
 
                 <Routes>
-                    <Route path="/" element={<ProviderHome />} />
-                    <Route path="/listings" element={<ListingsPage />} />
-                    <Route path="/listings/new" element={<NewListingPage />} />
-                    <Route path="/analytics" element={<AnalyticsPage />} />
-                    <Route path="/reviews" element={<ReviewsPage />} />
-                    <Route path="/profile" element={<ProfilePage />} />
-                    <Route path="*" element={<Navigate to="/" replace />} />
+                    <Route index element={<ProviderHome />} />
+                    <Route path="listings" element={<ListingsPage />} />
+                    <Route path="listings/new" element={<NewListingPage />} />
+                    <Route path="analytics" element={<AnalyticsPage />} />
+                    <Route path="reviews" element={<ReviewsPage />} />
+                    <Route path="profile" element={<ProfilePage />} />
+                    <Route path="*" element={<Navigate to="." replace />} />
                 </Routes>
             </main>
         </div>

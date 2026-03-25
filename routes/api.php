@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\ProvinceController;
 use App\Http\Controllers\Api\ProviderListingController;
 use App\Http\Controllers\Api\RecommendationController;
 use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\WeatherController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -31,6 +32,7 @@ Route::prefix('auth')->group(function () {
 
 Route::get('/weather', [WeatherController::class, 'index']);
 Route::get('/weather/forecast', [WeatherController::class, 'forecast']);
+Route::get('/stats', [StatsController::class, 'index']);
 Route::get('/provinces', [ProvinceController::class, 'index']);
 Route::get('/destinations', [DestinationController::class, 'index']);
 Route::get('/destinations/{destination}', [DestinationController::class, 'show']);
@@ -58,6 +60,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('local')->group(function () {
         Route::apiResource('provider-listings', ProviderListingController::class);
+        Route::get('/provider/stats', [ProviderListingController::class, 'stats']);
+        Route::get('/provider/listings', [ProviderListingController::class, 'myListings']);
+        Route::get('/provider/analytics', [ProviderListingController::class, 'myAnalytics']);
     });
 
     Route::middleware('admin')->group(function () {
@@ -78,12 +83,27 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard']);
+        Route::get('/alerts', [AdminController::class, 'alerts']);
+        Route::get('/province-traffic', [AdminController::class, 'provinceTraffic']);
+        Route::get('/top-destinations', [AdminController::class, 'topDestinations']);
+
         Route::get('/users', [AdminController::class, 'users']);
+        Route::put('/users/{id}/toggle-active', [AdminController::class, 'toggleActive']);
+
+        Route::get('/approvals', [AdminController::class, 'approvals']);
+        Route::post('/approvals/{id}/approve', [AdminController::class, 'approve']);
+        Route::post('/approvals/{id}/reject', [AdminController::class, 'reject']);
+
         Route::get('/approval-queue', [AdminController::class, 'approvalQueue']);
         Route::post('/approval-queue/{providerListing}/approve', [AdminController::class, 'approveListing']);
         Route::post('/approval-queue/{providerListing}/reject', [AdminController::class, 'rejectListing']);
         Route::get('/destinations', [AdminController::class, 'destinations']);
         Route::get('/reports', [AdminController::class, 'reports']);
         Route::get('/province-stats', [AdminController::class, 'provinceStats']);
+    });
+
+    Route::middleware('admin')->group(function () {
+        Route::post('/analytics/reports/generate', [AnalyticsController::class, 'generateReport']);
+        Route::get('/analytics/provinces/{id}/monthly', [AnalyticsController::class, 'provinceMonthly']);
     });
 });

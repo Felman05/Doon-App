@@ -11,14 +11,9 @@ export default function ReviewsPage() {
     const { data: reviews = [], isLoading } = useQuery({
         queryKey: ['provider-reviews'],
         queryFn: async () => {
-            const { data } = await api.get('/reviews?provider=me');
+            const { data } = await api.get('/reviews?mine=true&provider=true');
             return data.data ?? [];
         },
-    });
-
-    const flagMutation = useMutation({
-        mutationFn: (id) => api.post(`/reviews/${id}/flag`),
-        onSuccess: () => addToast?.('Review flagged for moderation', 'success'),
     });
 
     const totalReviews = reviews.length;
@@ -65,18 +60,13 @@ export default function ReviewsPage() {
                                 <div className="rev-ava">{review.user?.name?.charAt(0) || 'U'}</div>
                                 <div style={{ flex: 1 }}>
                                     <div className="rev-name">{review.user?.name}</div>
-                                    <div className="rev-date">{review.created_at}</div>
+                                    <div className="rev-date">{new Date(review.created_at).toLocaleDateString()}</div>
                                 </div>
                                 <div className="rev-stars">{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</div>
                             </div>
                             <div className="rev-txt">
                                 <strong>{review.title}</strong><br />
                                 {review.body}
-                            </div>
-                            <div style={{ marginTop: '8px', display: 'flex', gap: '6px' }}>
-                                <button onClick={() => flagMutation.mutate(review.id)} className="s-btn" style={{ fontSize: '11px' }}>
-                                    🚩 Flag
-                                </button>
                             </div>
                         </div>
                     ))}

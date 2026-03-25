@@ -19,19 +19,11 @@ export default function ListingsPage() {
     });
 
     const deleteMutation = useMutation({
-        mutationFn: (id) => api.delete(`/provider/listings/${id}`),
+        mutationFn: (id) => api.delete(`/provider-listings/${id}`),
         onSuccess: () => {
             addToast?.('Listing deleted', 'success');
             refetch();
             setToDelete(null);
-        },
-    });
-
-    const toggleMutation = useMutation({
-        mutationFn: (id) => api.put(`/provider/listings/${id}`, {}),
-        onSuccess: () => {
-            addToast?.('Listing updated', 'success');
-            refetch();
         },
     });
 
@@ -61,12 +53,12 @@ export default function ListingsPage() {
                         <tbody>
                             {listings.map(listing => (
                                 <tr key={listing.id}>
-                                    <td style={{ fontWeight: '600' }}>{listing.title}</td>
-                                    <td>{listing.type}</td>
+                                    <td style={{ fontWeight: '600' }}>{listing.listing_title || listing.destination?.name || '-'}</td>
+                                    <td>{listing.listing_type || '-'}</td>
                                     <td>₱{listing.price}</td>
                                     <td>{listing.capacity}</td>
                                     <td>
-                                        <span className={`pill p-${listing.status === 'active' ? 'g' : listing.status === 'pending' ? 'y' : 'n'}`}>
+                                        <span className={`pill ${listing.status === 'active' ? 'p-g' : listing.status === 'pending' ? 'p-y' : listing.status === 'rejected' ? 'p-r' : 'p-n'}`}>
                                             {listing.status}
                                         </span>
                                     </td>
