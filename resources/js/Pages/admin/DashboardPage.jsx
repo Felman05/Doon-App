@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { useContext } from 'react';
+import { useContext, memo } from 'react';
 import api from '../../lib/axios';
 import { ToastContext } from '../../context/ToastContext';
 import Chart from '../../components/ui/Chart';
 import StatCard from '../../components/ui/StatCard';
 
-export default function DashboardPage() {
+const DashboardPageContent = memo(() => {
     const { data: stats, isLoading } = useQuery({
         queryKey: ['admin-dashboard'],
         queryFn: async () => {
@@ -30,7 +30,7 @@ export default function DashboardPage() {
                 <StatCard icon="👥" label="Total Users" value={stats?.total_users || 0} />
                 <StatCard icon="📋" label="Total Bookings" value={stats?.total_bookings || 0} />
                 <StatCard icon="💰" label="Revenue" value={`$${stats?.total_revenue || 0}`} />
-                <StatCard icon="⭐" label="Avg Rating" value={(stats?.avg_rating || 0).toFixed(1)} />
+                <StatCard icon="⭐" label="Avg Rating" value={Number(stats?.avg_rating || 0).toFixed(1)} />
             </div>
 
             {chartData && (
@@ -41,4 +41,6 @@ export default function DashboardPage() {
             )}
         </div>
     );
-}
+});
+
+export default memo(DashboardPageContent);

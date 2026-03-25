@@ -74,4 +74,44 @@ class ReviewController extends Controller
 
         return response()->json(status: 204);
     }
+
+    public function providerReviews(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $provider = $user->localProviderProfile;
+
+        if (! $provider) {
+            return response()->json(['data' => [], 'avg' => 0, 'total' => 0, 'breakdown' => []]);
+        }
+
+        $destinationIds = ProviderListing::where('provider_id', $provider->id)
+            ->pluck('destination_id')
+            ->filter();
+
+        $reviews = Review::whereIn('destination_id', $destinationIds)
+            ->with('destination', 'user')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Calculate rating breakdown
+        $totalReviews = $reviews->count();
+        $avgRating = $reviews->avg('rating');
+        $breakdown = [];
+        for ($i = 5; $i >= 1; $i--) {
+            $count = $reviews->where('rating', $i)->count();
+            $breakdown[$i] = [
+                'count' => $count,
+                'percent' => $totalReviews > 0
+                    ? round(($count / $totalReviews) * 100)
+                    : 0,
+            ];
+        }
+
+        return response()->json([
+            'data' => $reviews,
+            'avg' => round($avgRating ?? 0, 1),
+            'total' => $totalReviews,
+            'breakdown' => $breakdown,
+        ]);
+    }
 }

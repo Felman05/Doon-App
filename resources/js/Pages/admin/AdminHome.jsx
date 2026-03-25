@@ -1,10 +1,153 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState, useCallback, memo } from 'react';
 import api from '../../lib/axios';
 import { ToastContext } from '../../context/ToastContext';
 import Skeleton from '../../components/ui/Skeleton';
 
-export default function AdminHome() {
+const KPIDashboard = memo(({ dashboard, kpiLoading }) => (
+    <div className="kpi-row c4 mb20">
+        <div className="kpi sr">
+            <div className="kpi-lbl">Total Users</div>
+            <div className="kpi-val">{kpiLoading ? <Skeleton height="28px" /> : dashboard?.total_users || 0}</div>
+        </div>
+        <div className="kpi sr d1">
+            <div className="kpi-lbl">Destinations</div>
+            <div className="kpi-val">{kpiLoading ? <Skeleton height="28px" /> : dashboard?.destinations || 0}</div>
+        </div>
+        <div className="kpi sr d2">
+            <div className="kpi-lbl">Pending Listings</div>
+            <div className="kpi-val">{kpiLoading ? <Skeleton height="28px" /> : dashboard?.pending_listings || 0}</div>
+        </div>
+        <div className="kpi sr d3">
+            <div className="kpi-lbl">Monthly AI Requests</div>
+            <div className="kpi-val">{kpiLoading ? <Skeleton height="28px" /> : dashboard?.monthly_requests || 0}</div>
+        </div>
+    </div>
+));
+
+const ProvinceTrafficCard = memo(({ provinceTraffic, trafficLoading, maxVisitors }) => (
+    <div className="dc sr d1">
+        <div className="dc-title">Province Traffic</div>
+        {trafficLoading ? <Skeleton height="160px" /> : (
+            <div className="bar-list">
+                {provinceTraffic.map((prov) => {
+                    const width = `${((Number(prov.visitors || 0) / maxVisitors) * 100).toFixed(2)}%`;
+                    return (
+                        <div key={prov.province} className="bar-row">
+                            <div className="bar-lbl">{prov.province}</div>
+                            <div className="bar-bg">
+                                <div className="bar-f ac" style={{ width }}></div>
+                            </div>
+                            <div className="bar-val">{prov.visitors || 0}</div>
+                        </div>
+                    );
+                })}
+            </div>
+        )}
+    </div>
+));
+
+const QuickActionsCard = memo(({ onViewApprovals }) => (
+    <div className="dc sr d2">
+        <div className="dc-title">Quick Actions</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button type="button" className="s-btn dark" onClick={onViewApprovals}>📋 Review Approvals</button>
+            <button type="button" className="s-btn" onClick={() => window.location.assign('/admin/reviews')}>⚠️ Flagged Reviews</button>
+            <button type="button" className="s-btn" onClick={() => window.location.assign('/admin/users')}>👥 Manage Users</button>
+        </div>
+    </div>
+));
+
+const TopDestinationsCard = memo(({ topDestinations, topDestLoading }) => (
+    <div className="dc sr d2">
+        <div className="dc-title">Top Destinations</div>
+        {topDestLoading ? <Skeleton height="150px" /> : topDestinations.map((dest) => (
+            <div key={dest.id} style={{ fontSize: '13px', padding: '8px 0', borderBottom: '1px solid var(--bd)' }}>
+                <div style={{ fontWeight: '600' }}>{dest.name} <span style={{ color: 'var(--i4)', fontWeight: 400 }}>({dest.province})</span></div>
+                <div style={{ fontSize: '11px', color: 'var(--i4)' }}>{dest.views} views • ⭐ {Number(dest.avg_rating || 0).toFixed(1)}</div>
+            </div>
+        ))}
+    </div>
+));
+
+const SystemAlertsCard = memo(({ alerts, alertsLoading }) => {
+    const alertClassMap = {
+        warning: 'warn',
+        error: 'err',
+        info: 'info',
+        success: 'ok',
+    };
+    return (
+        <div className="dc sr d3">
+            <div className="dc-title">System Alerts</div>
+            {alertsLoading ? <Skeleton height="150px" /> : alerts.map((alert, index) => (
+                <div key={`${alert.type}-${index}`} className={`alert ${alertClassMap[alert.type] || 'info'}`}>
+                    {alert.message}
+                </div>
+            ))}
+        </div>
+    );
+});
+
+const ApprovalRow = memo(({ row, approvalStatus, rejectingId, rejectReason, onReject, onApprove, onRejectClick, onRejectChange, onRejectCancel }) => (
+    <div className="appr-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div>
+                <div className="appr-name">{row.listing_title || row.destination?.name || 'Listing'}</div>
+                <div className="appr-meta">
+                    {row.provider?.business_name || row.provider?.user?.name || 'Provider'} • {row.status}
+                </div>
+            </div>
+            {approvalStatus === 'pending' ? (
+                <div className="appr-btns">
+                    <button type="button" className="btn-ok" onClick={() => onApprove(row.id)}>Approve</button>
+                    <button type="button" className="btn-no" onClick={() => onRejectClick(row.id)}>Reject</button>
+                </div>
+            ) : null}
+        </div>
+        {rejectingId === row.id ? (
+            <div style={{ marginTop: '10px' }}>
+                <textarea
+                    className="form-input"
+                    placeholder="Reason for rejection..."
+                    value={rejectReason}
+                    onChange={onRejectChange}
+                    style={{ minHeight: '70px' }}
+                />
+                <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                    <button
+                        type="button"
+                        className="btn-no"
+                        onClick={() => onReject(row.id, rejectReason)}
+                    >
+                        Confirm Reject
+                    </button>
+                    <button type="button" className="s-btn" onClick={onRejectCancel}>Cancel</button>
+                </div>
+            </div>
+        ) : null}
+    </div>
+));
+
+const UserRow = memo(({ user, optimisticActive, onToggleActive }) => (
+    <tr>
+        <td>{user.name}</td>
+        <td>{user.email}</td>
+        <td>{user.role}</td>
+        <td>
+            <span className={`pill ${optimisticActive ? 'p-g' : 'p-r'}`}>
+                {optimisticActive ? 'active' : 'inactive'}
+            </span>
+        </td>
+        <td>
+            <button type="button" className="s-btn" onClick={() => onToggleActive(user.id)}>
+                Toggle Active
+            </button>
+        </td>
+    </tr>
+));
+
+function AdminHome() {
     const queryClient = useQueryClient();
     const { addToast } = useContext(ToastContext) || {};
 
@@ -29,6 +172,21 @@ export default function AdminHome() {
 
         return () => window.clearTimeout(timeout);
     }, [searchInput]);
+
+    const handleViewApprovals = useCallback(() => setApprovalStatus('pending'), []);
+    const handleApprovalStatusChange = useCallback((status) => setApprovalStatus(status), []);
+    const handleSearchChange = useCallback((e) => setSearchInput(e.target.value), []);
+    const handleRoleFilterChange = useCallback((e) => setRoleFilter(e.target.value), []);
+    const handleStatusFilterChange = useCallback((e) => setStatusFilter(e.target.value), []);
+    const handleProvinceChange = useCallback((e) => setSelectedProvinceId(e.target.value), []);
+    const handleMonthChange = useCallback((e) => setReportMonth(e.target.value), []);
+    const handleGenerateReport = useCallback(() => generateReportMutation.mutate(), []);
+    const handleRejectReasonChange = useCallback((e) => setRejectReason(e.target.value), []);
+    const handleRejectClick = useCallback((id) => {
+        setRejectingId(id);
+        setRejectReason('');
+    }, []);
+    const handleRejectCancel = useCallback(() => setRejectingId(null), []);
 
     const { data: dashboard, isLoading: kpiLoading } = useQuery({
         queryKey: ['admin-dashboard'],
@@ -233,88 +391,21 @@ export default function AdminHome() {
             .slice(0, 3);
     }, [reportsData]);
 
-    const alertClassMap = {
-        warning: 'warn',
-        error: 'err',
-        info: 'info',
-        success: 'ok',
-    };
-
     const users = usersData?.data || [];
     const pendingBadge = dashboard?.pending_listings || 0;
 
     return (
         <>
-            <div className="kpi-row c4 mb20">
-                <div className="kpi sr">
-                    <div className="kpi-lbl">Total Users</div>
-                    <div className="kpi-val">{kpiLoading ? <Skeleton height="28px" /> : dashboard?.total_users || 0}</div>
-                </div>
-                <div className="kpi sr d1">
-                    <div className="kpi-lbl">Destinations</div>
-                    <div className="kpi-val">{kpiLoading ? <Skeleton height="28px" /> : dashboard?.destinations || 0}</div>
-                </div>
-                <div className="kpi sr d2">
-                    <div className="kpi-lbl">Pending Listings</div>
-                    <div className="kpi-val">{kpiLoading ? <Skeleton height="28px" /> : dashboard?.pending_listings || 0}</div>
-                </div>
-                <div className="kpi sr d3">
-                    <div className="kpi-lbl">Monthly AI Requests</div>
-                    <div className="kpi-val">{kpiLoading ? <Skeleton height="28px" /> : dashboard?.monthly_requests || 0}</div>
-                </div>
-            </div>
+            <KPIDashboard dashboard={dashboard} kpiLoading={kpiLoading} />
 
             <div className="g2 mb16">
-                <div className="dc sr d1">
-                    <div className="dc-title">Province Traffic</div>
-                    {trafficLoading ? <Skeleton height="160px" /> : (
-                        <div className="bar-list">
-                            {provinceTraffic.map((prov) => {
-                                const width = `${((Number(prov.visitors || 0) / maxVisitors) * 100).toFixed(2)}%`;
-
-                                return (
-                                    <div key={prov.province} className="bar-row">
-                                        <div className="bar-lbl">{prov.province}</div>
-                                        <div className="bar-bg">
-                                            <div className="bar-f ac" style={{ width }}></div>
-                                        </div>
-                                        <div className="bar-val">{prov.visitors || 0}</div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-
-                <div className="dc sr d2">
-                    <div className="dc-title">Quick Actions</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <button type="button" className="s-btn dark" onClick={() => setApprovalStatus('pending')}>📋 Review Approvals</button>
-                        <button type="button" className="s-btn" onClick={() => window.location.assign('/admin/reviews')}>⚠️ Flagged Reviews</button>
-                        <button type="button" className="s-btn" onClick={() => window.location.assign('/admin/users')}>👥 Manage Users</button>
-                    </div>
-                </div>
+                <ProvinceTrafficCard provinceTraffic={provinceTraffic} trafficLoading={trafficLoading} maxVisitors={maxVisitors} />
+                <QuickActionsCard onViewApprovals={handleViewApprovals} />
             </div>
 
             <div className="g2">
-                <div className="dc sr d2">
-                    <div className="dc-title">Top Destinations</div>
-                    {topDestLoading ? <Skeleton height="150px" /> : topDestinations.map((dest) => (
-                        <div key={dest.id} style={{ fontSize: '13px', padding: '8px 0', borderBottom: '1px solid var(--bd)' }}>
-                            <div style={{ fontWeight: '600' }}>{dest.name} <span style={{ color: 'var(--i4)', fontWeight: 400 }}>({dest.province})</span></div>
-                            <div style={{ fontSize: '11px', color: 'var(--i4)' }}>{dest.views} views • ⭐ {Number(dest.avg_rating || 0).toFixed(1)}</div>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="dc sr d3">
-                    <div className="dc-title">System Alerts</div>
-                    {alertsLoading ? <Skeleton height="150px" /> : alerts.map((alert, index) => (
-                        <div key={`${alert.type}-${index}`} className={`alert ${alertClassMap[alert.type] || 'info'}`}>
-                            {alert.message}
-                        </div>
-                    ))}
-                </div>
+                <TopDestinationsCard topDestinations={topDestinations} topDestLoading={topDestLoading} />
+                <SystemAlertsCard alerts={alerts} alertsLoading={alertsLoading} />
             </div>
 
             <div className="dc sr d2" style={{ marginTop: '16px' }}>
@@ -324,57 +415,29 @@ export default function AdminHome() {
                         <div className="dc-sub">Review provider submissions</div>
                     </div>
                     <div style={{ display: 'flex', gap: '6px' }}>
-                        <button type="button" className={`s-btn ${approvalStatus === 'pending' ? 'dark' : ''}`} onClick={() => setApprovalStatus('pending')}>
+                        <button type="button" className={`s-btn ${approvalStatus === 'pending' ? 'dark' : ''}`} onClick={() => handleApprovalStatusChange('pending')}>
                             Pending <span className="sb-badge" style={{ marginLeft: '6px' }}>{pendingBadge}</span>
                         </button>
-                        <button type="button" className={`s-btn ${approvalStatus === 'active' ? 'dark' : ''}`} onClick={() => setApprovalStatus('active')}>Approved</button>
-                        <button type="button" className={`s-btn ${approvalStatus === 'rejected' ? 'dark' : ''}`} onClick={() => setApprovalStatus('rejected')}>Rejected</button>
+                        <button type="button" className={`s-btn ${approvalStatus === 'active' ? 'dark' : ''}`} onClick={() => handleApprovalStatusChange('active')}>Approved</button>
+                        <button type="button" className={`s-btn ${approvalStatus === 'rejected' ? 'dark' : ''}`} onClick={() => handleApprovalStatusChange('rejected')}>Rejected</button>
                     </div>
                 </div>
 
                 {approvalsLoading ? <Skeleton height="180px" /> : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {approvalRows.length === 0 ? <div style={{ fontSize: '13px', color: 'var(--i4)' }}>No listings found for this status.</div> : approvalRows.map((row) => (
-                            <div key={row.id} className="appr-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <div>
-                                        <div className="appr-name">{row.listing_title || row.destination?.name || 'Listing'}</div>
-                                        <div className="appr-meta">
-                                            {row.provider?.business_name || row.provider?.user?.name || 'Provider'} • {row.status}
-                                        </div>
-                                    </div>
-                                    {approvalStatus === 'pending' ? (
-                                        <div className="appr-btns">
-                                            <button type="button" className="btn-ok" onClick={() => approveMutation.mutate(row.id)}>Approve</button>
-                                            <button type="button" className="btn-no" onClick={() => {
-                                                setRejectingId(row.id);
-                                                setRejectReason('');
-                                            }}>Reject</button>
-                                        </div>
-                                    ) : null}
-                                </div>
-                                {rejectingId === row.id ? (
-                                    <div style={{ marginTop: '10px' }}>
-                                        <textarea
-                                            className="form-input"
-                                            placeholder="Reason for rejection..."
-                                            value={rejectReason}
-                                            onChange={(event) => setRejectReason(event.target.value)}
-                                            style={{ minHeight: '70px' }}
-                                        />
-                                        <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                                            <button
-                                                type="button"
-                                                className="btn-no"
-                                                onClick={() => rejectMutation.mutate({ id: row.id, reason: rejectReason })}
-                                            >
-                                                Confirm Reject
-                                            </button>
-                                            <button type="button" className="s-btn" onClick={() => setRejectingId(null)}>Cancel</button>
-                                        </div>
-                                    </div>
-                                ) : null}
-                            </div>
+                            <ApprovalRow 
+                                key={row.id}
+                                row={row}
+                                approvalStatus={approvalStatus}
+                                rejectingId={rejectingId}
+                                rejectReason={rejectReason}
+                                onReject={(id, reason) => rejectMutation.mutate({ id, reason })}
+                                onApprove={(id) => approveMutation.mutate(id)}
+                                onRejectClick={handleRejectClick}
+                                onRejectChange={handleRejectReasonChange}
+                                onRejectCancel={handleRejectCancel}
+                            />
                         ))}
                     </div>
                 )}
@@ -388,9 +451,9 @@ export default function AdminHome() {
                         className="form-input"
                         placeholder="Search name or email"
                         value={searchInput}
-                        onChange={(event) => setSearchInput(event.target.value)}
+                        onChange={handleSearchChange}
                     />
-                    <select className="form-input" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                    <select className="form-input" value={roleFilter} onChange={handleRoleFilterChange}>
                         <option value="">All roles</option>
                         <option value="tourist">Tourist</option>
                         <option value="local">Local</option>
@@ -398,7 +461,7 @@ export default function AdminHome() {
                     </select>
                 </div>
                 <div className="form-row" style={{ marginBottom: '12px' }}>
-                    <select className="form-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                    <select className="form-input" value={statusFilter} onChange={handleStatusFilterChange}>
                         <option value="">All statuses</option>
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
@@ -421,23 +484,13 @@ export default function AdminHome() {
                             <tbody>
                                 {users.map((user) => {
                                     const computedActive = optimisticUsers[user.id] ?? user.is_active;
-
                                     return (
-                                        <tr key={user.id}>
-                                            <td>{user.name}</td>
-                                            <td>{user.email}</td>
-                                            <td>{user.role}</td>
-                                            <td>
-                                                <span className={`pill ${computedActive ? 'p-g' : 'p-r'}`}>
-                                                    {computedActive ? 'active' : 'inactive'}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <button type="button" className="s-btn" onClick={() => toggleActiveMutation.mutate(user.id)}>
-                                                    Toggle Active
-                                                </button>
-                                            </td>
-                                        </tr>
+                                        <UserRow 
+                                            key={user.id}
+                                            user={user}
+                                            optimisticActive={computedActive}
+                                            onToggleActive={(id) => toggleActiveMutation.mutate(id)}
+                                        />
                                     );
                                 })}
                             </tbody>
@@ -458,7 +511,7 @@ export default function AdminHome() {
                     <select
                         className="form-input"
                         value={selectedProvinceId}
-                        onChange={(event) => setSelectedProvinceId(event.target.value)}
+                        onChange={handleProvinceChange}
                     >
                         {provincesData.map((province) => (
                             <option key={province.id} value={province.id}>{province.name}</option>
@@ -468,14 +521,14 @@ export default function AdminHome() {
                         type="month"
                         className="form-input"
                         value={reportMonth}
-                        onChange={(event) => setReportMonth(event.target.value)}
+                        onChange={handleMonthChange}
                     />
                 </div>
 
                 <button
                     type="button"
                     className="s-btn dark"
-                    onClick={() => generateReportMutation.mutate()}
+                    onClick={handleGenerateReport}
                     disabled={!selectedProvinceId || generateReportMutation.isPending}
                 >
                     {generateReportMutation.isPending ? 'Generating...' : 'Generate'}
@@ -502,3 +555,5 @@ export default function AdminHome() {
         </>
     );
 }
+
+export default memo(AdminHome);

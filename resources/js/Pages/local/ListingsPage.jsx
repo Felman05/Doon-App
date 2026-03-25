@@ -9,6 +9,7 @@ import EmptyState from '../../components/ui/EmptyState';
 export default function ListingsPage() {
     const { addToast } = useContext(ToastContext) || {};
     const [toDelete, setToDelete] = useState(null);
+    const [statusFilter, setStatusFilter] = useState('all');
 
     const { data: listings = [], isLoading, refetch } = useQuery({
         queryKey: ['provider-listings'],
@@ -16,6 +17,7 @@ export default function ListingsPage() {
             const { data } = await api.get('/provider/listings');
             return data.data ?? [];
         },
+        retry: 1,
     });
 
     const deleteMutation = useMutation({
@@ -25,7 +27,22 @@ export default function ListingsPage() {
             refetch();
             setToDelete(null);
         },
+        onError: () => {
+            addToast?.('Failed to delete listing', 'error');
+        },
     });
+
+    // Filter listings by status
+    const filteredListings = statusFilter === 'all'
+        ? listings
+        : listings.filter(l => l.status === statusFilter);
+
+    const statusCounts = {
+        all: listings.length,
+        active: listings.filter(l => l.status === 'active').length,
+        pending: listings.filter(l => l.status === 'pending').length,
+        rejected: listings.filter(l => l.status === 'rejected').length,
+    };
 
     if (isLoading) {
         return <Skeleton height="300px" />;
@@ -33,11 +50,42 @@ export default function ListingsPage() {
 
     return (
         <>
-            <a href="/provider/listings/new" className="s-btn dark" style={{ marginBottom: '16px' }}>
-                ➕ Add New Listing
-            </a>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                <a href="/provider/listings/new" className="s-btn dark">
+                    ➕ Add New Listing
+                </a>
+            </div>
 
-            {listings.length ? (
+            {/* Status Filter Tabs */}
+            {listings.length > 0 && (
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--bd)' }}>
+                    {['all', 'active', 'pending', 'rejected'].map((status) => (
+                        <button
+                            key={status}
+                            onClick={() => setStatusFilter(status)}
+                            style={{
+                                padding: '10px 16px',
+                                background: 'none',
+                                border: 'none',
+                                borderBottom: statusFilter === status ? '2px solid var(--pr)' : '2px solid transparent',
+                                color: statusFilter === status ? 'var(--pr)' : 'var(--i4)',
+                                cursor: 'pointer',
+                                fontWeight: statusFilter === status ? '600' : '400',
+                                textTransform: 'capitalize',
+                                fontSize: '13px',
+                                transition: 'all 0.2s ease',
+                            }}
+                        >
+                            {status === 'all' ? 'All' : status}
+                            <span style={{ marginLeft: '6px', opacity: 0.7 }}>
+                                ({statusCounts[status]})
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {filteredListings.length ? (
                 <div className="d-table" style={{ borderRadius: 'var(--r2)', border: '1px solid var(--bd)', overflow: 'hidden', background: 'var(--wh)' }}>
                     <table className="d-table" style={{ width: '100%' }}>
                         <thead>
@@ -51,7 +99,7 @@ export default function ListingsPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {listings.map(listing => (
+                            {filteredListings.map(listing => (
                                 <tr key={listing.id}>
                                     <td style={{ fontWeight: '600' }}>{listing.listing_title || listing.destination?.name || '-'}</td>
                                     <td>{listing.listing_type || '-'}</td>
@@ -64,8 +112,12 @@ export default function ListingsPage() {
                                     </td>
                                     <td>
                                         <div style={{ display: 'flex', gap: '6px' }}>
-                                            <button className="s-btn" style={{ fontSize: '11px' }}>Edit</button>
-                                            <button onClick={() => setToDelete(listing.id)} className="s-btn" style={{ fontSize: '11px' }}>Delete</button>
+                                            <a href={`#/provider/listings/${listing.id}/edit`} className="s-btn" style={{ fontSize: '11px', textDecoration: 'none' }}>
+                                                Edit
+                                            </a>
+                                            <button onClick={() => setToDelete(listing.id)} className="s-btn" style={{ fontSize: '11px' }}>
+                                                Delete
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>

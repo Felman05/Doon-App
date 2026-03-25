@@ -63,6 +63,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/provider/stats', [ProviderListingController::class, 'stats']);
         Route::get('/provider/listings', [ProviderListingController::class, 'myListings']);
         Route::get('/provider/analytics', [ProviderListingController::class, 'myAnalytics']);
+        Route::get('/provider/profile', [ProviderListingController::class, 'profile']);
+        Route::put('/provider/profile', [ProviderListingController::class, 'updateProfile']);
+        Route::get('/provider/reviews', [ReviewController::class, 'providerReviews']);
     });
 
     Route::middleware('admin')->group(function () {

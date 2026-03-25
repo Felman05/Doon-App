@@ -1,15 +1,32 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useContext, useState } from 'react';
+import { useContext, useState, useCallback, memo } from 'react';
 import api from '../../lib/axios';
 import { ToastContext } from '../../context/ToastContext';
 import Pagination from '../../components/ui/Pagination';
 import EmptyState from '../../components/ui/EmptyState';
 import ConfirmationDialog from '../../components/ui/ConfirmationDialog';
 
-export default function DestinationsPage() {
+const DestinationRow = memo(({ dest, onDelete }) => (
+    <tr>
+        <td>{dest.name}</td>
+        <td>{dest.province}</td>
+        <td>{dest.category}</td>
+        <td><span className={`pill p-${dest.status === 'active' ? 'g' : 'n'}`}>{dest.status}</span></td>
+        <td>
+            <button className="s-btn" style={{ fontSize: '11px' }}>Edit</button>
+            <button onClick={() => onDelete(dest.id)} className="s-btn" style={{ fontSize: '11px' }}>Delete</button>
+        </td>
+    </tr>
+));
+
+function DestinationsPage() {
     const { addToast } = useContext(ToastContext) || {};
     const [page, setPage] = useState(1);
     const [toDelete, setToDelete] = useState(null);
+
+    const handlePageChange = useCallback((newPage) => setPage(newPage), []);
+    const handleDeleteClick = useCallback((id) => setToDelete(id), []);
+    const handleDeleteCancel = useCallback(() => setToDelete(null), []);
 
     const { data: { data: destinations = [], total = 0, last_page = 1 } = {}, isLoading, refetch } = useQuery({
         queryKey: ['admin-destinations', page],
@@ -21,7 +38,7 @@ export default function DestinationsPage() {
 
     const deleteMutation = useMutation({
         mutationFn: (id) => api.delete(`/admin/destinations/${id}`),
-        onSuccess: () => { addToast?.('Destination deleted', 'success'); refetch(); setToDelete(null); },
+        onSuccess: () => { addToast?.('Destination deleted', 'success'); refetch(); handleDeleteCancel(); },
     });
 
     return (
@@ -46,27 +63,20 @@ export default function DestinationsPage() {
                             </thead>
                             <tbody>
                                 {destinations.map(dest => (
-                                    <tr key={dest.id}>
-                                        <td>{dest.name}</td>
-                                        <td>{dest.province}</td>
-                                        <td>{dest.category}</td>
-                                        <td><span className={`pill p-${dest.status === 'active' ? 'g' : 'n'}`}>{dest.status}</span></td>
-                                        <td>
-                                            <button className="s-btn" style={{ fontSize: '11px' }}>Edit</button>
-                                            <button onClick={() => setToDelete(dest.id)} className="s-btn" style={{ fontSize: '11px' }}>Delete</button>
-                                        </td>
-                                    </tr>
+                                    <DestinationRow key={dest.id} dest={dest} onDelete={handleDeleteClick} />
                                 ))}
                             </tbody>
                         </table>
                     </div>
-                    {last_page > 1 && <Pagination currentPage={page} totalPages={last_page} onPageChange={setPage} totalResults={total} />}
+                    {last_page > 1 && <Pagination currentPage={page} totalPages={last_page} onPageChange={handlePageChange} totalResults={total} />}
                 </>
             ) : (
                 <EmptyState icon="🗺️" title="No destinations" />
             )}
 
-            <ConfirmationDialog isOpen={!!toDelete} title="Delete destination?" isDangerous confirmLabel="Delete" onConfirm={() => deleteMutation.mutate(toDelete)} onCancel={() => setToDelete(null)} />
+            <ConfirmationDialog isOpen={!!toDelete} title="Delete destination?" isDangerous confirmLabel="Delete" onConfirm={() => deleteMutation.mutate(toDelete)} onCancel={handleDeleteCancel} />
         </>
     );
 }
+
+export default memo(DestinationsPage);

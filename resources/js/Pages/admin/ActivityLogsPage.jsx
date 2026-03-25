@@ -1,12 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useCallback, memo } from 'react';
 import api from '../../lib/axios';
 import Pagination from '../../components/ui/Pagination';
 import EmptyState from '../../components/ui/EmptyState';
 
-export default function ActivityLogsPage() {
+const ActivityLogRow = memo(({ log }) => (
+    <tr>
+        <td>{log.user?.name}</td>
+        <td><span className={`pill p-${log.action === 'delete' ? 'r' : 'b'}`}>{log.action}</span></td>
+        <td>{log.resource_type} #{log.resource_id}</td>
+        <td>{new Date(log.created_at).toLocaleString()}</td>
+        <td style={{ fontSize: '12px' }}>{log.ip_address}</td>
+    </tr>
+));
+
+function ActivityLogsPage() {
     const [page, setPage] = useState(1);
     const [filterBy, setFilterBy] = useState('all');
+
+    const handlePageChange = useCallback((newPage) => setPage(newPage), []);
+    const handleFilterChange = useCallback((e) => { setFilterBy(e.target.value); setPage(1); }, []);
 
     const { data: { data: logs = [], total = 0, last_page = 1 } = {} } = useQuery({
         queryKey: ['admin-activity-logs', page, filterBy],
@@ -19,7 +32,7 @@ export default function ActivityLogsPage() {
     return (
         <>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                <select value={filterBy} onChange={(e) => { setFilterBy(e.target.value); setPage(1); }} className="form-input" style={{ width: '150px' }}>
+                <select value={filterBy} onChange={handleFilterChange} className="form-input" style={{ width: '150px' }}>
                     <option value="all">All Activities</option>
                     <option value="login">Logins</option>
                     <option value="create">Created</option>
@@ -42,13 +55,7 @@ export default function ActivityLogsPage() {
                         </thead>
                         <tbody>
                             {logs.map(log => (
-                                <tr key={log.id}>
-                                    <td>{log.user?.name}</td>
-                                    <td><span className={`pill p-${log.action === 'delete' ? 'r' : 'b'}`}>{log.action}</span></td>
-                                    <td>{log.resource_type} #{log.resource_id}</td>
-                                    <td>{new Date(log.created_at).toLocaleString()}</td>
-                                    <td style={{ fontSize: '12px' }}>{log.ip_address}</td>
-                                </tr>
+                                <ActivityLogRow key={log.id} log={log} />
                             ))}
                         </tbody>
                     </table>
@@ -57,7 +64,9 @@ export default function ActivityLogsPage() {
                 <EmptyState icon="📝" title="No activity logs" />
             )}
 
-            {last_page > 1 && <Pagination currentPage={page} totalPages={last_page} onPageChange={setPage} totalResults={total} />}
+            {last_page > 1 && <Pagination currentPage={page} totalPages={last_page} onPageChange={handlePageChange} totalResults={total} />}
         </>
     );
 }
+
+export default memo(ActivityLogsPage);

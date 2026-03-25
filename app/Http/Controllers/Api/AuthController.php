@@ -76,7 +76,7 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()->loadMissing('touristProfile');
+        $user = $request->user()->loadMissing(['touristProfile:id,user_id,generational_profile,preferred_budget,travel_style']);
 
         return response()->json(['user' => new UserResource($user)]);
     }

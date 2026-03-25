@@ -21,15 +21,33 @@ class AdminController extends Controller
 {
     public function dashboard(): JsonResponse
     {
+        $userCounts = User::selectRaw('role, COUNT(*) as count')
+            ->groupBy('role')
+            ->pluck('count', 'role');
+
         $totalUsers = User::count();
-        $tourists = User::where('role', 'tourist')->count();
-        $providers = User::where('role', 'local')->count();
-        $destinations = Destination::where('is_active', true)->count();
-        $pendingDest = Destination::where('is_verified', false)->count();
-        $activeProviders = LocalProviderProfile::where('is_verified', true)->count();
-        $unverifiedProviders = LocalProviderProfile::where('is_verified', false)->count();
-        $monthlyRequests = RecommendationRequest::whereMonth('created_at', now()->month)->count();
-        $avgResponseMs = RecommendationRequest::whereMonth('created_at', now()->month)->avg('response_time_ms');
+        $tourists = $userCounts->get('tourist', 0);
+        $providers = $userCounts->get('local', 0);
+
+        $destStats = Destination::selectRaw('is_active, is_verified, COUNT(*) as count')
+            ->groupBy('is_active', 'is_verified')
+            ->get()
+            ->keyBy(fn ($row) => "{$row->is_active}.{$row->is_verified}");
+
+        $destinations = $destStats->get('1.1')?->count ?? 0;
+        $pendingDest = $destStats->get('1.0')?->count ?? 0;
+
+        $providerStats = LocalProviderProfile::selectRaw('is_verified, COUNT(*) as count')
+            ->groupBy('is_verified')
+            ->pluck('count', 'is_verified');
+
+        $activeProviders = $providerStats->get(1, 0);
+        $unverifiedProviders = $providerStats->get(0, 0);
+
+        $monthlyReqs = RecommendationRequest::whereMonth('created_at', now()->month)
+            ->selectRaw('COUNT(*) as total, AVG(response_time_ms) as avg_time')
+            ->first();
+
         $pendingListings = ProviderListing::where('status', 'pending')->count();
         $flaggedReviews = Review::where('is_published', false)->count();
 
@@ -42,8 +60,8 @@ class AdminController extends Controller
                 'pending_destinations' => $pendingDest,
                 'active_providers' => $activeProviders,
                 'unverified_providers' => $unverifiedProviders,
-                'monthly_requests' => $monthlyRequests,
-                'avg_response_ms' => round($avgResponseMs ?? 0),
+                'monthly_requests' => $monthlyReqs->total ?? 0,
+                'avg_response_ms' => round($monthlyReqs->avg_time ?? 0),
                 'pending_listings' => $pendingListings,
                 'flagged_reviews' => $flaggedReviews,
             ],
@@ -52,19 +70,27 @@ class AdminController extends Controller
 
     public function alerts(): JsonResponse
     {
+        $counts = DB::table('provider_listings')
+            ->selectRaw('COUNT(CASE WHEN status = "pending" THEN 1 END) as pending_listings')
+            ->selectRaw('COUNT(CASE WHEN status IN ("active", "inactive") THEN 1 END) as review_count')
+            ->first();
+
+        $flaggedReviews = Review::where('is_published', false)->count();
+        $unverifiedProviders = LocalProviderProfile::where('is_verified', false)->count();
+
         return response()->json([
             'alerts' => [
                 [
                     'type' => 'warning',
-                    'message' => ProviderListing::where('status', 'pending')->count() . ' listings pending approval',
+                    'message' => ($counts->pending_listings ?? 0) . ' listings pending approval',
                 ],
                 [
                     'type' => 'error',
-                    'message' => Review::where('is_published', false)->count() . ' reviews flagged for moderation',
+                    'message' => $flaggedReviews . ' reviews flagged for moderation',
                 ],
                 [
                     'type' => 'info',
-                    'message' => LocalProviderProfile::where('is_verified', false)->count() . ' providers awaiting verification',
+                    'message' => $unverifiedProviders . ' providers awaiting verification',
                 ],
                 [
                     'type' => 'success',
@@ -76,55 +102,39 @@ class AdminController extends Controller
 
     public function provinceTraffic(): JsonResponse
     {
-        $provinces = Province::with(['analyticsEvents' => function ($q) {
-            $q->whereMonth('created_at', now()->month);
-        }])->get()->map(function ($province) {
-            $events = $province->analyticsEvents;
+        $monthStart = now()->startOfMonth()->toDateString();
+        $reports = LguMonthlyReport::where('report_month', '>=', $monthStart)
+            ->with('province:id,name')
+            ->orderBy('report_month', 'desc')
+            ->get(['province_id', 'total_visitors', 'visitor_demographics'])
+            ->map(function ($report) {
+                $demo = $report->visitor_demographics ?? [];
+                return [
+                    'province' => $report->province->name ?? 'Unknown',
+                    'visitors' => (int) $report->total_visitors,
+                    'gen_z' => (int) ($demo['gen_z'] ?? 0),
+                    'millennial' => (int) ($demo['millennial'] ?? 0),
+                    'gen_x' => (int) ($demo['gen_x'] ?? 0),
+                ];
+            });
 
-            return [
-                'province' => $province->name,
-                'visitors' => $events->count(),
-                'gen_z' => $events->filter(fn ($event) => data_get($event->metadata, 'gen') === 'gen_z')->count(),
-                'millennial' => $events->filter(fn ($event) => data_get($event->metadata, 'gen') === 'millennial')->count(),
-                'gen_x' => $events->filter(fn ($event) => data_get($event->metadata, 'gen') === 'gen_x')->count(),
-            ];
-        });
-
-        if ($provinces->sum('visitors') === 0) {
-            $reports = LguMonthlyReport::where('report_month', now()->startOfMonth()->toDateString())
-                ->with('province')
-                ->get()
-                ->map(function ($report) {
-                    $demo = $report->visitor_demographics ?? [];
-
-                    return [
-                        'province' => $report->province->name ?? 'Unknown',
-                        'visitors' => (int) $report->total_visitors,
-                        'gen_z' => (int) ($demo['gen_z'] ?? 0),
-                        'millennial' => (int) ($demo['millennial'] ?? 0),
-                        'gen_x' => (int) ($demo['gen_x'] ?? 0),
-                    ];
-                });
-
-            return response()->json(['data' => $reports]);
-        }
-
-        return response()->json(['data' => $provinces]);
+        return response()->json(['data' => $reports]);
     }
 
     public function topDestinations(): JsonResponse
     {
         $destinations = Destination::where('is_active', true)
+            ->with('province:id,name', 'category:id,name')
+            ->select('id', 'name', 'view_count', 'avg_rating', 'province_id', 'category_id')
             ->orderBy('view_count', 'desc')
             ->take(5)
-            ->with('province', 'category')
             ->get()
             ->map(fn ($d) => [
                 'id' => $d->id,
                 'name' => $d->name,
                 'province' => $d->province->name ?? '',
-                'views' => $d->view_count,
-                'avg_rating' => $d->avg_rating,
+                'views' => (int) $d->view_count,
+                'avg_rating' => (float) ($d->avg_rating ?? 0),
             ]);
 
         return response()->json(['data' => $destinations]);
@@ -132,9 +142,9 @@ class AdminController extends Controller
 
     public function users(Request $request): JsonResponse
     {
-        $query = User::query();
+        $query = User::select('id', 'name', 'email', 'role', 'is_active', 'created_at');
 
-        if ($request->filled('role')) {
+        if ($request->filled('role') && $request->string('role')->toString() !== 'all') {
             $query->where('role', $request->string('role')->toString());
         }
 
@@ -158,12 +168,13 @@ class AdminController extends Controller
 
     public function toggleActive(int $id): JsonResponse
     {
-        $user = User::findOrFail($id);
-        $user->update(['is_active' => ! $user->is_active]);
+        $user = User::select('id', 'is_active')->findOrFail($id);
+        $newStatus = !$user->is_active;
+        $user->update(['is_active' => $newStatus]);
 
         return response()->json([
-            'is_active' => $user->is_active,
-            'message' => $user->is_active ? 'User activated' : 'User deactivated',
+            'is_active' => $newStatus,
+            'message' => $newStatus ? 'User activated' : 'User deactivated',
         ]);
     }
 
@@ -172,7 +183,12 @@ class AdminController extends Controller
         $status = $request->query('status', 'pending');
 
         $listings = ProviderListing::where('status', $status)
-            ->with(['provider.user', 'destination'])
+            ->with([
+                'provider:id,user_id,business_name',
+                'provider.user:id,name,email',
+                'destination:id,name,province_id',
+            ])
+            ->select('id', 'provider_id', 'destination_id', 'listing_title', 'listing_type', 'status', 'created_at')
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 

@@ -1,16 +1,44 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useContext, useState } from 'react';
+import { useContext, useState, useCallback, memo } from 'react';
 import api from '../../lib/axios';
 import { ToastContext } from '../../context/ToastContext';
 import Pagination from '../../components/ui/Pagination';
 import EmptyState from '../../components/ui/EmptyState';
 import ConfirmationDialog from '../../components/ui/ConfirmationDialog';
 
-export default function UsersPage() {
+const UserRow = memo(({ user, onDelete, onRoleChange }) => (
+    <tr>
+        <td>{user.name}</td>
+        <td>{user.email}</td>
+        <td>
+            <select 
+                value={user.role} 
+                onChange={(e) => onRoleChange({ id: user.id, role: e.target.value })}
+                className="form-input"
+                style={{ fontSize: '11px', padding: '4px 8px', width: '80px' }}
+            >
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+            </select>
+        </td>
+        <td>{new Date(user.created_at).toLocaleDateString()}</td>
+        <td>{user.bookings_count || 0}</td>
+        <td>
+            <button onClick={() => onDelete(user.id)} className="s-btn" style={{ fontSize: '11px' }}>Delete</button>
+        </td>
+    </tr>
+));
+
+function UsersPage() {
     const { addToast } = useContext(ToastContext) || {};
     const [page, setPage] = useState(1);
     const [toDelete, setToDelete] = useState(null);
     const [search, setSearch] = useState('');
+
+    const handlePageChange = useCallback((newPage) => setPage(newPage), []);
+    const handleSearchChange = useCallback((e) => { setSearch(e.target.value); setPage(1); }, []);
+    const handleDeleteClick = useCallback((id) => setToDelete(id), []);
+    const handleDeleteCancel = useCallback(() => setToDelete(null), []);
 
     const { data: { data: users = [], total = 0, last_page = 1 } = {} } = useQuery({
         queryKey: ['admin-users', page, search],
@@ -22,7 +50,7 @@ export default function UsersPage() {
 
     const deleteMutation = useMutation({
         mutationFn: (id) => api.delete(`/admin/users/${id}`),
-        onSuccess: () => { addToast?.('User deleted', 'success'); setToDelete(null); },
+        onSuccess: () => { addToast?.('User deleted', 'success'); handleDeleteCancel(); },
     });
 
     const toggleRoleMutation = useMutation({
@@ -34,7 +62,7 @@ export default function UsersPage() {
         <>
             <input 
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onChange={handleSearchChange}
                 placeholder="Search users..."
                 className="form-input"
                 style={{ marginBottom: '16px', width: '100%' }}
@@ -55,26 +83,12 @@ export default function UsersPage() {
                         </thead>
                         <tbody>
                             {users.map(user => (
-                                <tr key={user.id}>
-                                    <td>{user.name}</td>
-                                    <td>{user.email}</td>
-                                    <td>
-                                        <select 
-                                            value={user.role} 
-                                            onChange={(e) => toggleRoleMutation.mutate({ id: user.id, role: e.target.value })}
-                                            className="form-input"
-                                            style={{ fontSize: '11px', padding: '4px 8px', width: '80px' }}
-                                        >
-                                            <option value="user">User</option>
-                                            <option value="admin">Admin</option>
-                                        </select>
-                                    </td>
-                                    <td>{new Date(user.created_at).toLocaleDateString()}</td>
-                                    <td>{user.bookings_count || 0}</td>
-                                    <td>
-                                        <button onClick={() => setToDelete(user.id)} className="s-btn" style={{ fontSize: '11px' }}>Delete</button>
-                                    </td>
-                                </tr>
+                                <UserRow 
+                                    key={user.id} 
+                                    user={user} 
+                                    onDelete={handleDeleteClick}
+                                    onRoleChange={toggleRoleMutation.mutate}
+                                />
                             ))}
                         </tbody>
                     </table>
@@ -83,9 +97,11 @@ export default function UsersPage() {
                 <EmptyState icon="👥" title="No users found" />
             )}
 
-            {last_page > 1 && <Pagination currentPage={page} totalPages={last_page} onPageChange={setPage} totalResults={total} />}
+            {last_page > 1 && <Pagination currentPage={page} totalPages={last_page} onPageChange={handlePageChange} totalResults={total} />}
 
-            <ConfirmationDialog isOpen={!!toDelete} title="Delete user?" isDangerous confirmLabel="Delete" onConfirm={() => deleteMutation.mutate(toDelete)} onCancel={() => setToDelete(null)} />
+            <ConfirmationDialog isOpen={!!toDelete} title="Delete user?" isDangerous confirmLabel="Delete" onConfirm={() => deleteMutation.mutate(toDelete)} onCancel={handleDeleteCancel} />
         </>
     );
 }
+
+export default memo(UsersPage);

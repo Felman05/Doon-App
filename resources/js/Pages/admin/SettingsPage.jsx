@@ -5,20 +5,31 @@ import { ToastContext } from '../../context/ToastContext';
 
 export default function SettingsPage() {
     const { addToast } = useContext(ToastContext) || {};
-    const [formData, setFormData] = useState({
+    const defaultFormData = {
         app_name: '',
         app_email: '',
         app_phone: '',
         app_address: '',
         maintenance_mode: false,
-    });
+    };
+    const [formData, setFormData] = useState(defaultFormData);
 
     const { isLoading } = useQuery({
         queryKey: ['admin-settings'],
         queryFn: async () => {
             const { data } = await api.get('/admin/settings');
-            setFormData(data.data);
-            return data.data;
+
+            const payload = data?.data?.data ?? data?.data ?? {};
+            const normalized = {
+                ...defaultFormData,
+                ...(typeof payload === 'object' && payload !== null ? payload : {}),
+            };
+
+            setFormData(normalized);
+            return normalized;
+        },
+        onError: () => {
+            setFormData(defaultFormData);
         },
     });
 
